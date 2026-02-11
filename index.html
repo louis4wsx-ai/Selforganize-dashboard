@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TITAN PROTOCOL | DASHBOARD v12.0</title>
+    <title>TITAN PROTOCOL | DASHBOARD v12.1</title>
     <style>
         :root {
             --bg-color: #0a0a0a;
@@ -255,6 +255,9 @@
                 <button class="btn-inject" onclick="injectFood('LUNCH')">>>> 午餐</button>
                 <button class="btn-inject" onclick="injectFood('DINNER')">>>> 晚餐</button>
             </div>
+            <button class="btn-inject" style="width:100%; margin-top:10px; border-style:dashed;" onclick="addSupplements()">
+                + 鱼油/姜黄素/补剂 (50 kcal)
+            </button>
         </div>
         <div class="food-log-history" id="today-food-log"></div>
     </div>
@@ -417,6 +420,12 @@
         const kcal = Math.round(mass / 100 * foodDB[selectedFoodIndex].kcal);
         totalCals += kcal; dailyFoodLog.push({ desc: `[${type}] ${foodDB[selectedFoodIndex].name} ${mass}g`, kcal });
         localStorage.setItem('titan_cals', totalCals); localStorage.setItem('titan_food_log', JSON.stringify(dailyFoodLog));
+        updateCalUI(); renderFoodLog();
+    }
+    function addSupplements() {
+        totalCals += 50; localStorage.setItem('titan_cals', totalCals);
+        dailyFoodLog.push({ desc: "[SUPPS] 鱼油/姜黄素", kcal: 50 });
+        localStorage.setItem('titan_food_log', JSON.stringify(dailyFoodLog));
         updateCalUI(); renderFoodLog();
     }
     function renderFoodLog() {
