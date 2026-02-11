@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TITAN PROTOCOL | DASHBOARD v10.0</title>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --card-bg: #1c1c1c;
+            --text-primary: #e0e0e0;
+            --text-secondary: #888;
+            --accent-color: #00ff41; /* 骇客绿 */
+            --danger-color: #ff3333;
+            --warning-color: #ffcc00;
+            --modal-bg: rgba(0, 0, 0, 0.95);
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding-bottom: 80px;
+        }
+
+        header {
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; }
+        .sub-header { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;}
+
+        .btn-history {
+            background: transparent;
+            border: 1px solid var(--text-secondary);
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .btn-history:hover { border-color: var(--accent-color); color: var(--accent-color); }
+
+        .section-title {
+            color: var(--accent-color);
+            border-left: 4px solid var(--accent-color);
+            padding-left: 10px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* --- Timeline --- */
+        .timeline-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding: 8px;
+            opacity: 0.9;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+            border-left: 3px solid transparent;
+        }
+        
+        .schedule-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 1px solid var(--accent-color);
+            background: transparent;
+            margin-right: 12px;
+            margin-top: 4px;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: grid;
+            place-content: center;
+        }
+        .schedule-checkbox::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em var(--accent-color);
+        }
+        .schedule-checkbox:checked::before { transform: scale(1); }
+
+        .timeline-item.completed { opacity: 0.6; } 
+        .timeline-item.completed .task .task-title { text-decoration: line-through; }
+        .timeline-item.active { opacity: 1; border-left: 3px solid var(--accent-color); background: rgba(0, 255, 65, 0.05); }
+        
+        .time { font-weight: bold; min-width: 60px; color: var(--accent-color); margin-top: 2px;}
+        .task { flex-grow: 1; }
+        .task-detail { font-size: 0.85rem; color: var(--text-secondary); display: block; margin-top: 4px; }
+        .task-title { font-weight: bold; }
+
+        .task-input {
+            width: 95%;
+            background: rgba(0,0,0,0.3);
+            border: none;
+            border-bottom: 1px solid #444;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.85rem;
+            padding: 4px;
+            margin-top: 5px;
+        }
+        .task-input:focus { outline: none; border-bottom-color: var(--accent-color); }
+        .task-input:disabled { color: #888; border-bottom: 1px dashed #444; background: transparent; }
+
+        /* --- Workout --- */
+        .workout-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            background: #252525;
+            padding: 10px;
+            border: 1px solid #333;
+        }
+        input[type="checkbox"].workout-check { transform: scale(1.5); margin-right: 15px; accent-color: var(--accent-color); cursor: pointer; }
+        .rep-scheme { font-size: 0.8rem; color: var(--warning-color); margin-left: auto; font-weight: bold; }
+
+        /* --- Fuel --- */
+        .progress-container { background-color: #333; height: 24px; border-radius: 4px; margin-top: 5px; overflow: hidden; position: relative; }
+        .progress-bar { background-color: var(--accent-color); height: 100%; transition: width 0.5s; text-align: center; font-size: 12px; color: black; font-weight: bold; line-height: 24px; display: flex; align-items: center; justify-content: center; }
+
+        .fuel-injector { margin-top: 15px; border: 1px solid #333; padding: 10px; background: rgba(0,0,0,0.2); }
+        .food-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 15px; }
+        .food-chip { background: #222; border: 1px solid #444; padding: 8px; font-size: 0.75rem; text-align: center; cursor: pointer; display: flex; flex-direction: column; }
+        .food-chip.selected { background: rgba(0, 255, 65, 0.1); border-color: var(--accent-color); color: var(--accent-color); }
+
+        .mass-control { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; background: #111; padding: 10px; border-radius: 4px; }
+        input[type="range"] { flex-grow: 1; accent-color: var(--accent-color); }
+        input[type="number"] { width: 55px; background: transparent; border: none; color: var(--accent-color); font-family: inherit; font-size: 1.1rem; text-align: right; }
+
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-inject { background: #222; border: 1px solid #444; color: #888; padding: 10px; cursor: pointer; text-transform: uppercase; font-size: 0.8rem; }
+        .btn-inject:hover { border-color: var(--accent-color); color: var(--accent-color); }
+        
+        .food-log-history { font-size: 0.75rem; color: #666; margin-top: 10px; border-top: 1px dashed #333; padding-top: 10px; max-height: 150px; overflow-y: auto; }
+        .food-log-item { margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; padding: 2px 0; }
+        .delete-btn { color: var(--danger-color); cursor: pointer; font-weight: bold; margin-right: 8px; }
+
+        /* --- Archives Modal & Backup UI --- */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-bg); z-index: 100; justify-content: center; align-items: center; }
+        .modal-content { background: var(--card-bg); border: 1px solid var(--accent-color); width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 20px; position: relative; }
+        .close-modal { position: absolute; top: 10px; right: 15px; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem; }
+        
+        .history-entry { border-bottom: 1px solid #333; padding: 15px 0; font-size: 0.9rem; }
+        .history-date { color: var(--accent-color); font-weight: bold; font-size: 1.1rem; margin-bottom: 5px; }
+        
+        .backup-control {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #333;
+        }
+        .backup-btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn-backup {
+            background: #111;
+            border: 1px solid #555;
+            color: #aaa;
+            font-size: 0.7rem;
+            padding: 8px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .btn-backup:hover { border-color: var(--accent-color); color: var(--accent-color); }
+
+        .btn-download { background: #222; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 5px 10px; font-size: 0.75rem; cursor: pointer; width: 100%; margin-top: 10px; }
+
+        .btn-archive { width: 100%; margin-top: 30px; text-align: center; border: 1px dashed var(--text-secondary); color: var(--text-secondary); padding: 15px; background: transparent; cursor: pointer; }
+        .status-badge { cursor: pointer; user-select: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div>
+            <div style="display: flex; align-items: center;">
+                <h1>Titan Protocol</h1>
+                <button class="btn-history" onclick="openHistory()">📂 ARCHIVES</button>
+            </div>
+            <div class="sub-header" id="date-header">SYNCING...</div>
+        </div>
+        <div id="clock" style="font-size: 1.2rem; font-weight: bold;">00:00</div>
+    </header>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between;">
+            <span class="status-badge" onclick="toggleInflammation()">🟢 炎症水平: <span id="inflammation-status">低</span></span>
+            <span>🔵 精神: <span style="color:var(--accent-color)">享受痛苦</span></span>
+        </div>
+    </div>
+
+    <div class="section-title">MISSION TIMELINE</div>
+    <div id="schedule-list"></div>
+
+    <div class="section-title">TITAN REMODELING</div>
+    <div class="card">
+        <div id="workout-list"></div>
+    </div>
+
+    <div class="section-title">FUEL INJECTOR (2000 kcal)</div>
+    <div class="card">
+        <div style="margin-bottom: 10px; display:flex; justify-content:space-between;">
+            <span>今日额度</span>
+            <span><span id="cal-remaining" style="color:var(--accent-color); font-weight:bold;">2000</span> kcal 剩余</span>
+        </div>
+        <div class="progress-container">
+            <div class="progress-bar" id="cal-bar">0%</div>
+        </div>
+        
+        <div class="fuel-injector">
+            <div class="food-grid" id="food-grid"></div>
+            <div class="mass-control">
+                <input type="range" id="mass-slider" min="0" max="500" value="100" step="10" oninput="syncMassInput(this.value)">
+                <input type="number" id="mass-input" value="100" oninput="syncMassSlider(this.value)">
+                <span style="color:#666; font-size:0.8rem;">g</span>
+            </div>
+            <div class="action-grid">
+                <button class="btn-inject" onclick="injectFood('LUNCH')">>>> 午餐</button>
+                <button class="btn-inject" onclick="injectFood('DINNER')">>>> 晚餐</button>
+            </div>
+        </div>
+        <div class="food-log-history" id="today-food-log"></div>
+    </div>
+
+    <button class="btn-archive" onclick="archiveDay()">⏹ 结束今日并归档 (END DAY)</button>
+</div>
+
+<!-- Archives Modal -->
+<div id="history-modal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeHistory()">&times;</span>
+        <h2 style="color:var(--accent-color); border-bottom: 1px solid #333; padding-bottom:10px;">MISSION ARCHIVES</h2>
+        
+        <div id="history-list"></div>
+
+        <!-- NEW: Backup/Restore Data Center -->
+        <div class="backup-control">
+            <div style="font-size: 0.7rem; color: #555; text-transform: uppercase;">Data Center (防止 Alook 丢档)</div>
+            <div class="backup-btn-group">
+                <button class="btn-backup" onclick="exportBackup()">📤 备份数据<br>(生成代码)</button>
+                <button class="btn-backup" onclick="importBackup()">📥 恢复数据<br>(输入代码)</button>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <button onclick="clearHistory()" style="font-size: 0.7rem; border:1px solid #333; color: #444; background:transparent; padding:5px;">⚠️ CLEAR ALL DATA</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const scheduleData = [
+        { time: "07:00", title: "晨间启动", desc: "足底滚球 + 抱球呼吸" },
+        { time: "08:00", title: "送女儿上学", desc: "头贴头枕" },
+        { time: "09:30", title: "深度工作", hasInput: true, placeholder: "今日重点..." },
+        { time: "12:30", title: "第一餐", desc: "午饭后平躺20分钟" },
+        { time: "13:30", title: "深度工作", hasInput: true, placeholder: "午后重点..." },
+        { time: "15:00", title: "轻社交", hasInput: true, placeholder: "备注内容..." },
+        { time: "16:00", title: "接女儿放学", desc: "屈髋下蹲" },
+        { time: "17:30", title: "泰坦重塑训练", desc: "慢速离心 | 享受痛苦" },
+        { time: "19:00", title: "第二餐", desc: "鱼虾蟹 + 优质脂肪" },
+        { time: "22:00", title: "关机 & 呼吸", desc: "准备睡眠" }
+    ];
+
+    const workoutData = [
+        { id: "w1", title: "死虫子激活", reps: "3x12" },
+        { id: "w2", title: "高脚杯深蹲", reps: "4x8" },
+        { id: "w3", title: "保加利亚分腿蹲", reps: "3x8" },
+        { id: "w4", title: "慢速 RDL", reps: "4x10" }
+    ];
+
+    const foodDB = [
+        { name: "鸡/瘦肉", kcal: 150 }, { name: "肥牛/猪肉", kcal: 280 },
+        { name: "海鲜/鱼虾", kcal: 100 }, { name: "豆制品", kcal: 120 },
+        { name: "蔬菜/绿叶", kcal: 30 }, { name: "主食/米饭", kcal: 130 },
+        { name: "水果", kcal: 50 } 
+    ];
+
+    let totalCals = parseInt(localStorage.getItem('titan_cals')) || 0;
+    let dailyFoodLog = JSON.parse(localStorage.getItem('titan_food_log')) || [];
+    let selectedFoodIndex = -1;
+
+    window.onload = () => {
+        renderSchedule(); renderWorkouts(); renderFoodGrid(); updateCalUI(); renderFoodLog();
+        setInterval(updateClock, 1000); updateClock(); updateDate();
+    };
+
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('clock').innerText = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const currentMin = now.getHours() * 60 + now.getMinutes();
+        document.querySelectorAll('.timeline-item').forEach((item, index, items) => {
+            item.classList.remove('active');
+            const [h, m] = item.dataset.time.split(':').map(Number);
+            const itemTime = h * 60 + m;
+            let nextItemTime = index < items.length - 1 ? items[index+1].dataset.time.split(':').map(Number)[0]*60 + items[index+1].dataset.time.split(':').map(Number)[1] : itemTime + 90;
+            if (currentMin >= itemTime && currentMin < nextItemTime) item.classList.add('active');
+        });
+    }
+
+    function updateDate() {
+        const now = new Date();
+        const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+        const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.');
+        document.getElementById('date-header').innerText = `${dateStr} | ${days[now.getDay()]}`;
+    }
+
+    /* --- SCHEDULE & WORKOUT --- */
+    function renderSchedule() {
+        const container = document.getElementById('schedule-list');
+        container.innerHTML = '';
+        scheduleData.forEach(item => {
+            const isCompleted = localStorage.getItem(`titan_schedule_${item.time}`) === 'true';
+            const savedValue = localStorage.getItem(`titan_note_${item.time}`) || '';
+            const div = document.createElement('div');
+            div.className = `timeline-item ${isCompleted ? 'completed' : ''}`;
+            div.dataset.time = item.time;
+            div.innerHTML = `
+                <input type="checkbox" class="schedule-checkbox" ${isCompleted ? 'checked' : ''} onchange="toggleSchedule('${item.time}', this)">
+                <div class="time">${item.time}</div>
+                <div class="task">
+                    <div class="task-title">${item.title}</div>
+                    ${item.desc ? `<span class="task-detail">${item.desc}</span>` : ''}
+                    ${item.hasInput ? `<input type="text" class="task-input" id="note-${item.time}" value="${savedValue}" oninput="localStorage.setItem('titan_note_${item.time}', this.value)" ${isCompleted ? 'disabled' : ''}>` : ''}
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function toggleSchedule(time, cb) { localStorage.setItem(`titan_schedule_${time}`, cb.checked); renderSchedule(); }
+    function renderWorkouts() {
+        const container = document.getElementById('workout-list');
+        workoutData.forEach(item => {
+            const isChecked = localStorage.getItem('titan_workout_' + item.id) === 'true' ? 'checked' : '';
+            container.innerHTML += `<div class="workout-item">
+                <input type="checkbox" class="workout-check" id="${item.id}" ${isChecked} onchange="localStorage.setItem('titan_workout_${item.id}', this.checked)">
+                <label for="${item.id}" style="width:100%">${item.title}</label><span class="rep-scheme">${item.reps}</span>
+            </div>`;
+        });
+    }
+
+    /* --- FOOD --- */
+    function renderFoodGrid() {
+        const container = document.getElementById('food-grid');
+        foodDB.forEach((f, i) => {
+            const div = document.createElement('div');
+            div.className = `food-chip ${i === selectedFoodIndex ? 'selected' : ''}`;
+            div.onclick = () => { selectedFoodIndex = i; document.querySelectorAll('.food-chip').forEach(c => c.classList.remove('selected')); div.classList.add('selected'); };
+            div.innerHTML = `<div>${f.name}</div><span style="font-size:0.6rem;opacity:0.6">${f.kcal}/100g</span>`;
+            container.appendChild(div);
+        });
+    }
+    function syncMassInput(v) { document.getElementById('mass-input').value = v; }
+    function syncMassSlider(v) { document.getElementById('mass-slider').value = v; }
+    function injectFood(type) {
+        if(selectedFoodIndex === -1) return;
+        const mass = parseInt(document.getElementById('mass-input').value);
+        const kcal = Math.round(mass / 100 * foodDB[selectedFoodIndex].kcal);
+        totalCals += kcal; dailyFoodLog.push({ desc: `[${type}] ${foodDB[selectedFoodIndex].name} ${mass}g`, kcal });
+        localStorage.setItem('titan_cals', totalCals); localStorage.setItem('titan_food_log', JSON.stringify(dailyFoodLog));
+        updateCalUI(); renderFoodLog();
+    }
+    function renderFoodLog() {
+        const container = document.getElementById('today-food-log'); container.innerHTML = '';
+        dailyFoodLog.forEach((item, i) => {
+            container.innerHTML = `<div class="food-log-item"><div><span class="delete-btn" onclick="deleteFood(${i})">[x]</span>${item.desc}</div><span>${item.kcal}</span></div>` + container.innerHTML;
+        });
+    }
+    function deleteFood(i) { totalCals -= dailyFoodLog[i].kcal; dailyFoodLog.splice(i, 1); localStorage.setItem('titan_cals', totalCals); localStorage.setItem('titan_food_log', JSON.stringify(dailyFoodLog)); updateCalUI(); renderFoodLog(); }
+    function updateCalUI() {
+        const pct = Math.min(totalCals / 2000 * 100, 100);
+        document.getElementById('cal-remaining').innerText = Math.max(2000 - totalCals, 0);
+        const bar = document.getElementById('cal-bar'); bar.style.width = pct + '%'; bar.innerText = totalCals + ' kcal';
+        bar.style.backgroundColor = totalCals > 2000 ? 'var(--danger-color)' : (pct > 80 ? 'var(--warning-color)' : 'var(--accent-color)');
+    }
+
+    /* --- BACKUP & RECOVERY (THE FIX FOR ALOOK) --- */
+    function exportBackup() {
+        const data = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('titan_')) data[key] = localStorage.getItem(key);
+        }
+        const str = btoa(encodeURIComponent(JSON.stringify(data)));
+        const tempInput = document.createElement('textarea');
+        tempInput.value = str; document.body.appendChild(tempInput);
+        tempInput.select(); document.execCommand('copy'); document.body.removeChild(tempInput);
+        alert("✅ 备份代码已复制到剪贴板！\n请粘贴到备忘录中。");
+    }
+
+    function importBackup() {
+        const str = prompt("请输入备份代码 (从备忘录中拷贝)：");
+        if (!str) return;
+        try {
+            const data = JSON.parse(decodeURIComponent(atob(str)));
+            Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
+            alert("✅ 数据恢复成功！页面将刷新。");
+            location.reload();
+        } catch(e) { alert("❌ 备份代码格式错误，无法恢复。"); }
+    }
+
+    /* --- ARCHIVE & REPORT --- */
+    function archiveDay() {
+        if(!confirm("确定结束今日并归档吗？")) return;
+        const entry = { id: Date.now(), date: new Date().toLocaleDateString('zh-CN'), calories: totalCals, 
+            workouts: workoutData.filter(w => localStorage.getItem('titan_workout_'+w.id)==='true').map(w => w.title),
+            notes: scheduleData.filter(s => s.hasInput).map(s => `[${s.time}] ${localStorage.getItem('titan_note_'+s.time)||''}`).join('\n')
+        };
+        let history = JSON.parse(localStorage.getItem('titan_history') || "[]");
+        history.unshift(entry); localStorage.setItem('titan_history', JSON.stringify(history));
+        // Clear daily
+        localStorage.removeItem('titan_cals'); localStorage.removeItem('titan_food_log');
+        scheduleData.forEach(s => { localStorage.removeItem(`titan_schedule_${s.time}`); localStorage.removeItem(`titan_note_${s.time}`); });
+        workoutData.forEach(w => localStorage.removeItem(`titan_workout_${w.id}`));
+        location.reload();
+    }
+
+    function openHistory() {
+        const modal = document.getElementById('history-modal');
+        const list = document.getElementById('history-list');
+        const history = JSON.parse(localStorage.getItem('titan_history') || "[]");
+        list.innerHTML = history.length === 0 ? '<div style="color:#444;text-align:center;padding:20px;">无历史数据</div>' : '';
+        history.forEach(e => {
+            list.innerHTML += `<div class="history-entry">
+                <div class="history-date">${e.date}</div>
+                <div style="font-size:0.8rem; color:#888;">摄入: ${e.calories} kcal | 训练: ${e.workouts.length} 项</div>
+                <button class="btn-download" onclick="downloadReport(${e.id})">⇩ DOWNLOAD REPORT IMAGE</button>
+            </div>`;
+        });
+        modal.style.display = 'flex';
+    }
+    function closeHistory() { document.getElementById('history-modal').style.display = 'none'; }
+    function clearHistory() { if(confirm("彻底删除？")) { localStorage.clear(); location.reload(); } }
+
+    function downloadReport(id) {
+        const history = JSON.parse(localStorage.getItem('titan_history') || "[]");
+        const e = history.find(item => item.id === id);
+        const canvas = document.createElement('canvas');
+        canvas.width = 600; canvas.height = 800;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0,0,600,800);
+        ctx.strokeStyle = '#00ff41'; ctx.lineWidth = 10; ctx.strokeRect(20,20,560,760);
+        ctx.fillStyle = '#00ff41'; ctx.font = 'bold 30px Courier New'; ctx.textAlign = 'center';
+        ctx.fillText('TITAN REPORT', 300, 80);
+        ctx.fillStyle = '#fff'; ctx.font = '20px Courier New'; ctx.fillText(e.date, 300, 120);
+        ctx.fillText(`FUEL: ${e.calories} kcal`, 300, 180);
+        ctx.fillStyle = '#888'; ctx.font = '16px Courier New';
+        ctx.fillText('PROTOCOLS EXECUTED:', 300, 230);
+        e.workouts.forEach((w, i) => ctx.fillText(`[x] ${w}`, 300, 260 + i*25));
+        ctx.font = '14px Courier New';
+        ctx.fillText('FIELD NOTES:', 300, 450);
+        const lines = e.notes.split('\n');
+        lines.forEach((l, i) => ctx.fillText(l, 300, 480 + i*20));
+        
+        const link = document.createElement('a');
+        link.download = `计划报告 ${e.date.replace(/\//g,'-')}.png`;
+        link.href = canvas.toDataURL(); link.click();
+    }
+</script>
+
+</body>
+</html>
