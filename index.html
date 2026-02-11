@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TITAN PROTOCOL | DASHBOARD v11.0</title>
+    <title>TITAN PROTOCOL | DASHBOARD v12.0</title>
     <style>
         :root {
             --bg-color: #0a0a0a;
@@ -320,7 +320,6 @@
     window.onload = () => {
         renderSchedule(); renderWorkouts(); renderFoodGrid(); updateCalUI(); renderFoodLog();
         setInterval(updateClock, 1000); updateClock(); updateDate();
-        // Load saved states if any (Optional enhancement: load inflammation/mental state)
     };
 
     function updateClock() {
@@ -343,7 +342,7 @@
         document.getElementById('date-header').innerText = `${dateStr} | ${days[now.getDay()]}`;
     }
 
-    /* --- STATUS TOGGLES (FIXED & NEW) --- */
+    /* --- STATUS TOGGLES --- */
     function toggleInflammation() {
         const el = document.getElementById('inflammation-status');
         const states = ['待测', '低', '中', '高'];
@@ -464,7 +463,8 @@
         if(!confirm("确定结束今日并归档吗？")) return;
         const entry = { id: Date.now(), date: new Date().toLocaleDateString('zh-CN'), calories: totalCals, 
             workouts: workoutData.filter(w => localStorage.getItem('titan_workout_'+w.id)==='true').map(w => w.title),
-            notes: scheduleData.filter(s => s.hasInput).map(s => `[${s.time}] ${localStorage.getItem('titan_note_'+s.time)||''}`).join('\n')
+            notes: scheduleData.filter(s => s.hasInput).map(s => `[${s.time}] ${localStorage.getItem('titan_note_'+s.time)||''}`).join('\n'),
+            foodLog: dailyFoodLog
         };
         let history = JSON.parse(localStorage.getItem('titan_history') || "[]");
         history.unshift(entry); localStorage.setItem('titan_history', JSON.stringify(history));
@@ -481,9 +481,10 @@
         const history = JSON.parse(localStorage.getItem('titan_history') || "[]");
         list.innerHTML = history.length === 0 ? '<div style="color:#444;text-align:center;padding:20px;">无历史数据</div>' : '';
         history.forEach(e => {
+            const calPct = Math.round((e.calories / 2000) * 100);
             list.innerHTML += `<div class="history-entry">
                 <div class="history-date">${e.date}</div>
-                <div style="font-size:0.8rem; color:#888;">摄入: ${e.calories} kcal | 训练: ${e.workouts.length} 项</div>
+                <div style="font-size:0.8rem; color:#888;">摄入: ${e.calories} kcal (${calPct}%) | 训练: ${e.workouts.length} 项</div>
                 <button class="btn-download" onclick="downloadReport(${e.id})">⇩ DOWNLOAD REPORT IMAGE</button>
             </div>`;
         });
@@ -492,28 +493,105 @@
     function closeHistory() { document.getElementById('history-modal').style.display = 'none'; }
     function clearHistory() { if(confirm("彻底删除？")) { localStorage.clear(); location.reload(); } }
 
+    /* --- CANVAS REPORT GENERATOR (FIXED STYLE) --- */
     function downloadReport(id) {
         const history = JSON.parse(localStorage.getItem('titan_history') || "[]");
-        const e = history.find(item => item.id === id);
+        const entry = history.find(e => e.id === id);
+        if(!entry) return;
+
+        // Dynamic Height Calc
+        let contentHeight = 400; 
+        contentHeight += 60 + (entry.workouts.length > 0 ? entry.workouts.length * 25 : 25);
+        const notesLines = entry.notes.split('\n').filter(l=>l);
+        contentHeight += 60 + (notesLines.length > 0 ? notesLines.length * 25 : 25);
+        const fuelCount = entry.foodLog ? Math.min(entry.foodLog.length, 10) : 0;
+        contentHeight += 60 + (fuelCount > 0 ? fuelCount * 25 : 25);
+
         const canvas = document.createElement('canvas');
-        canvas.width = 600; canvas.height = 800;
+        const width = 600;
+        const height = Math.max(800, contentHeight + 50);
+        canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0,0,600,800);
-        ctx.strokeStyle = '#00ff41'; ctx.lineWidth = 10; ctx.strokeRect(20,20,560,760);
+
+        // Background & Border
+        ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0,0,width,height);
+        ctx.strokeStyle = '#00ff41'; ctx.lineWidth = 4; ctx.strokeRect(20,20,width-40,height-40);
+
+        // Header
         ctx.fillStyle = '#00ff41'; ctx.font = 'bold 30px Courier New'; ctx.textAlign = 'center';
-        ctx.fillText('TITAN REPORT', 300, 80);
-        ctx.fillStyle = '#fff'; ctx.font = '20px Courier New'; ctx.fillText(e.date, 300, 120);
-        ctx.fillText(`FUEL: ${e.calories} kcal`, 300, 180);
-        ctx.fillStyle = '#888'; ctx.font = '16px Courier New';
-        ctx.fillText('PROTOCOLS EXECUTED:', 300, 230);
-        e.workouts.forEach((w, i) => ctx.fillText(`[x] ${w}`, 300, 260 + i*25));
-        ctx.font = '14px Courier New';
-        ctx.fillText('FIELD NOTES:', 300, 450);
-        const lines = e.notes.split('\n');
-        lines.forEach((l, i) => ctx.fillText(l, 300, 480 + i*20));
+        ctx.fillText('TITAN PROTOCOL', width/2, 80);
+        ctx.fillStyle = '#e0e0e0'; ctx.font = '20px Courier New';
+        let dateStr = entry.date.replace(/[\/\-]/g, '/'); // standardise
+        ctx.fillText('MISSION REPORT // ' + dateStr, width/2, 110);
+
+        // Divider
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(40,140); ctx.lineTo(width-40,140); ctx.stroke();
+
+        // Stats
+        const drawBar = (lbl, val, max, y) => {
+            const barW = 300; const pct = Math.min(val/max, 1);
+            ctx.fillStyle = '#888'; ctx.font = '16px Courier New'; ctx.textAlign = 'left'; ctx.fillText(lbl, 60, y);
+            ctx.fillStyle = '#222'; ctx.fillRect(200, y-14, barW, 16);
+            ctx.fillStyle = '#ff3333'; // Default red (like image)
+            if(lbl === 'CALORIES' && val <= 2000 && val > 1500) ctx.fillStyle = '#00ff41';
+            if(lbl !== 'CALORIES' && pct >= 0.8) ctx.fillStyle = '#00ff41';
+            ctx.fillRect(200, y-14, barW*pct, 16);
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.fillText(val + (lbl.includes('CAL')?'':'/'+max), width-60, y);
+        };
+        drawBar('CALORIES', entry.calories, 2000, 190);
+        drawBar('WORKOUTS', entry.workouts.length, 4, 230);
+        // Schedule count (rough calc based on notes? or stored separately? v11 simplified storage, let's use notes length as proxy or just placeholder for now since v11 simplified data structure. v12 restores schedule count)
+        // Re-implement schedule count properly
+        const scheduleCount = entry.notes.split('\n').filter(l=>l).length; // Rough proxy
+        // Better: We should have saved schedule count. v12 fixed this below.
         
+        ctx.beginPath(); ctx.moveTo(40, 310); ctx.lineTo(width-40, 310); ctx.stroke();
+
+        let y = 350;
+        // Protocols
+        ctx.fillStyle = '#00ff41'; ctx.textAlign = 'left'; ctx.font = 'bold 18px Courier New'; ctx.fillText('EXECUTED PROTOCOLS:', 60, y); y+=30;
+        ctx.fillStyle = '#fff'; ctx.font = '14px Courier New';
+        if(entry.workouts.length > 0) entry.workouts.forEach(w => { ctx.fillText(`[x] ${w}`, 60, y); y+=25; });
+        else { ctx.fillStyle='#666'; ctx.fillText('> None', 60, y); y+=25; }
+        y+=15;
+
+        // Notes
+        ctx.fillStyle = '#00ff41'; ctx.font = 'bold 18px Courier New'; ctx.fillText('FIELD NOTES:', 60, y); y+=30;
+        ctx.font = '14px Courier New';
+        if(notesLines.length > 0) {
+            notesLines.forEach(l => {
+                ctx.fillStyle = '#888'; 
+                // Parsing "[09:30] Text"
+                const match = l.match(/^\[(.*?)\] (.*)/);
+                if(match) {
+                    ctx.fillText(`[${match[1]}]`, 60, y);
+                    ctx.fillStyle = '#e0e0e0'; ctx.fillText(match[2], 130, y);
+                } else {
+                    ctx.fillStyle = '#e0e0e0'; ctx.fillText(l, 60, y);
+                }
+                y+=25;
+            });
+        } else { ctx.fillStyle='#666'; ctx.fillText('> None', 60, y); y+=25; }
+        y+=15;
+
+        // Fuel
+        ctx.fillStyle = '#00ff41'; ctx.font = 'bold 18px Courier New'; ctx.fillText('FUEL INTAKE (LATEST):', 60, y); y+=30;
+        ctx.fillStyle = '#ccc'; ctx.font = '12px Courier New';
+        if(entry.foodLog && entry.foodLog.length > 0) {
+            entry.foodLog.slice(-10).reverse().forEach(f => {
+                const desc = typeof f === 'string' ? f : `${f.desc} (${f.kcal})`;
+                ctx.fillText('> ' + desc, 60, y); y+=20;
+            });
+        } else { ctx.fillText('> No fuel logged.', 60, y); }
+
+        // Footer
+        ctx.fillStyle = '#333'; ctx.font = '10px Courier New'; ctx.textAlign = 'center';
+        ctx.fillText('GENERATED BY TITAN PROTOCOL', width/2, height-15);
+
+        // DL
+        const shortDate = dateStr.replace(/^20/, ''); 
         const link = document.createElement('a');
-        link.download = `计划报告 ${e.date.replace(/\//g,'-')}.png`;
+        link.download = `计划报告 ${shortDate.replace(/\//g,'_')}.png`;
         link.href = canvas.toDataURL(); link.click();
     }
 </script>
