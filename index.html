@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TITAN PROTOCOL | DASHBOARD v12.1</title>
+    <title>TITAN PROTOCOL | DASHBOARD v13.0</title>
     <style>
         :root {
             --bg-color: #0a0a0a;
@@ -470,8 +470,15 @@
     /* --- ARCHIVE & REPORT --- */
     function archiveDay() {
         if(!confirm("确定结束今日并归档吗？")) return;
+        
+        // Count Schedule Items
+        let schedDone = 0;
+        scheduleData.forEach(s => { if(localStorage.getItem(`titan_schedule_${s.time}`) === 'true') schedDone++; });
+
         const entry = { id: Date.now(), date: new Date().toLocaleDateString('zh-CN'), calories: totalCals, 
             workouts: workoutData.filter(w => localStorage.getItem('titan_workout_'+w.id)==='true').map(w => w.title),
+            scheduleDone: schedDone,
+            scheduleTotal: scheduleData.length,
             notes: scheduleData.filter(s => s.hasInput).map(s => `[${s.time}] ${localStorage.getItem('titan_note_'+s.time)||''}`).join('\n'),
             foodLog: dailyFoodLog
         };
@@ -502,7 +509,7 @@
     function closeHistory() { document.getElementById('history-modal').style.display = 'none'; }
     function clearHistory() { if(confirm("彻底删除？")) { localStorage.clear(); location.reload(); } }
 
-    /* --- CANVAS REPORT GENERATOR (FIXED STYLE) --- */
+    /* --- CANVAS REPORT GENERATOR (FIXED STYLE WITH SCHEDULE) --- */
     function downloadReport(id) {
         const history = JSON.parse(localStorage.getItem('titan_history') || "[]");
         const entry = history.find(e => e.id === id);
@@ -549,11 +556,12 @@
         };
         drawBar('CALORIES', entry.calories, 2000, 190);
         drawBar('WORKOUTS', entry.workouts.length, 4, 230);
-        // Schedule count (rough calc based on notes? or stored separately? v11 simplified storage, let's use notes length as proxy or just placeholder for now since v11 simplified data structure. v12 restores schedule count)
-        // Re-implement schedule count properly
-        const scheduleCount = entry.notes.split('\n').filter(l=>l).length; // Rough proxy
-        // Better: We should have saved schedule count. v12 fixed this below.
         
+        // SCHEDULE (Fixed)
+        const sDone = entry.scheduleDone !== undefined ? entry.scheduleDone : 0;
+        const sTotal = entry.scheduleTotal !== undefined ? entry.scheduleTotal : 11;
+        drawBar('SCHEDULE', sDone, sTotal, 270);
+
         ctx.beginPath(); ctx.moveTo(40, 310); ctx.lineTo(width-40, 310); ctx.stroke();
 
         let y = 350;
