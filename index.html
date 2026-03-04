@@ -3,615 +3,1848 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TITAN PROTOCOL | DASHBOARD v13.0</title>
+    <title>个人资金流向分析 (Pro V12.16 - 状态锁定版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #ffffff; color: #1e293b; }
+        .card { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border: 1px solid #f3f4f6; }
+        
         :root {
-            --bg-color: #0a0a0a;
-            --card-bg: #1c1c1c;
-            --text-primary: #e0e0e0;
-            --text-secondary: #888;
-            --accent-color: #00ff41; /* 骇客绿 */
-            --danger-color: #ff3333;
-            --warning-color: #ffcc00;
-            --modal-bg: rgba(0, 0, 0, 0.95);
+            --primary-emerald: #2FA873;
+            --primary-emerald-hover: #25855c;
+            --primary-bg-light: #ecfdf5;
+            --primary-border-light: #d1fae5;
         }
 
-        body {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            margin: 0;
-            padding: 20px;
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding-bottom: 80px;
-        }
-
-        header {
-            border-bottom: 2px solid var(--accent-color);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-        }
-
-        h1 { margin: 0; font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; }
-        .sub-header { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;}
-
-        .btn-history {
-            background: transparent;
-            border: 1px solid var(--text-secondary);
-            color: var(--text-secondary);
-            font-size: 0.7rem;
-            padding: 2px 8px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-        .btn-history:hover { border-color: var(--accent-color); color: var(--accent-color); }
-
-        .section-title {
-            color: var(--accent-color);
-            border-left: 4px solid var(--accent-color);
-            padding-left: 10px;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            border: 1px solid #333;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-
-        /* --- Timeline --- */
-        .timeline-item {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 15px;
-            padding: 8px;
-            opacity: 0.9;
-            transition: all 0.3s ease;
-            border-radius: 4px;
-            border-left: 3px solid transparent;
-        }
+        .btn-primary { background-color: var(--primary-emerald); color: white; transition: all 0.2s; }
+        .btn-primary:hover { background-color: var(--primary-emerald-hover); transform: translateY(-1px); }
+        .icon-box { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; }
         
-        .schedule-checkbox {
-            appearance: none;
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            border: 1px solid var(--accent-color);
-            background: transparent;
-            margin-right: 12px;
-            margin-top: 4px;
-            cursor: pointer;
-            flex-shrink: 0;
-            display: grid;
-            place-content: center;
-        }
-        .schedule-checkbox::before {
-            content: "";
-            width: 10px;
-            height: 10px;
-            transform: scale(0);
-            transition: 120ms transform ease-in-out;
-            box-shadow: inset 1em 1em var(--accent-color);
-        }
-        .schedule-checkbox:checked::before { transform: scale(1); }
-
-        .timeline-item.completed { opacity: 0.6; } 
-        .timeline-item.completed .task .task-title { text-decoration: line-through; }
-        .timeline-item.active { opacity: 1; border-left: 3px solid var(--accent-color); background: rgba(0, 255, 65, 0.05); }
+        .tab-active { border-bottom: 2px solid var(--primary-emerald); color: var(--primary-emerald); font-weight: 600; }
+        .tab-inactive { border-bottom: 2px solid transparent; color: #64748b; }
+        .tab-inactive:hover { color: #334155; }
         
-        .time { font-weight: bold; min-width: 60px; color: var(--accent-color); margin-top: 2px;}
-        .task { flex-grow: 1; }
-        .task-detail { font-size: 0.85rem; color: var(--text-secondary); display: block; margin-top: 4px; }
-        .task-title { font-weight: bold; }
-
-        .task-input {
-            width: 95%;
-            background: rgba(0,0,0,0.3);
-            border: none;
-            border-bottom: 1px solid #444;
-            color: var(--text-primary);
-            font-family: inherit;
-            font-size: 0.85rem;
-            padding: 4px;
-            margin-top: 5px;
-        }
-        .task-input:focus { outline: none; border-bottom-color: var(--accent-color); }
-        .task-input:disabled { color: #888; border-bottom: 1px dashed #444; background: transparent; }
-
-        /* --- Workout --- */
-        .workout-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-            background: #252525;
-            padding: 10px;
-            border: 1px solid #333;
-        }
-        input[type="checkbox"].workout-check { transform: scale(1.5); margin-right: 15px; accent-color: var(--accent-color); cursor: pointer; }
-        .rep-scheme { font-size: 0.8rem; color: var(--warning-color); margin-left: auto; font-weight: bold; }
-
-        /* --- Fuel --- */
-        .progress-container { background-color: #333; height: 24px; border-radius: 4px; margin-top: 5px; overflow: hidden; position: relative; }
-        .progress-bar { background-color: var(--accent-color); height: 100%; transition: width 0.5s; text-align: center; font-size: 12px; color: black; font-weight: bold; line-height: 24px; display: flex; align-items: center; justify-content: center; }
-
-        .fuel-injector { margin-top: 15px; border: 1px solid #333; padding: 10px; background: rgba(0,0,0,0.2); }
-        .food-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 15px; }
-        .food-chip { background: #222; border: 1px solid #444; padding: 8px; font-size: 0.75rem; text-align: center; cursor: pointer; display: flex; flex-direction: column; }
-        .food-chip.selected { background: rgba(0, 255, 65, 0.1); border-color: var(--accent-color); color: var(--accent-color); }
-
-        .mass-control { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; background: #111; padding: 10px; border-radius: 4px; }
-        input[type="range"] { flex-grow: 1; accent-color: var(--accent-color); }
-        input[type="number"] { width: 55px; background: transparent; border: none; color: var(--accent-color); font-family: inherit; font-size: 1.1rem; text-align: right; }
-
-        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn-inject { background: #222; border: 1px solid #444; color: #888; padding: 10px; cursor: pointer; text-transform: uppercase; font-size: 0.8rem; }
-        .btn-inject:hover { border-color: var(--accent-color); color: var(--accent-color); }
+        .clickable-row:hover { background-color: #f0fdf4; cursor: pointer; } 
+        .tag-match { background-color: #ecfdf5; color: var(--primary-emerald); border: 1px solid #a7f3d0; font-family: monospace; }
+        .rule-item:hover .rule-actions { opacity: 1; }
+        .rule-actions { opacity: 0; transition: opacity 0.2s; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .progress-bar-fill { transition: width 1s ease-in-out; }
+        .clickable-card { cursor: pointer; transition: all 0.2s ease; }
+        .clickable-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .trend-up { color: #ef4444; } 
+        .trend-down { color: #10b981; }
         
-        .food-log-history { font-size: 0.75rem; color: #666; margin-top: 10px; border-top: 1px dashed #333; padding-top: 10px; max-height: 150px; overflow-y: auto; }
-        .food-log-item { margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; padding: 2px 0; }
-        .delete-btn { color: var(--danger-color); cursor: pointer; font-weight: bold; margin-right: 8px; }
+        #compareToggle:checked + div { background-color: var(--primary-emerald); }
 
-        /* --- Archives Modal & Backup UI --- */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-bg); z-index: 100; justify-content: center; align-items: center; }
-        .modal-content { background: var(--card-bg); border: 1px solid var(--accent-color); width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 20px; position: relative; }
-        .close-modal { position: absolute; top: 10px; right: 15px; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem; }
+        .color-a { color: #2FA873; } 
+        .bg-a { background-color: rgba(47, 168, 115, 0.85); }
+        .color-b { color: #f59e0b; } 
+        .bg-b { background-color: #f59e0b; }
         
-        .history-entry { border-bottom: 1px solid #333; padding: 15px 0; font-size: 0.9rem; }
-        .history-date { color: var(--accent-color); font-weight: bold; font-size: 1.1rem; margin-bottom: 5px; }
-        
-        .backup-control {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 2px solid #333;
-        }
-        .backup-btn-group {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .btn-backup {
-            background: #111;
-            border: 1px solid #555;
-            color: #aaa;
-            font-size: 0.7rem;
-            padding: 8px;
-            cursor: pointer;
-            text-align: center;
-        }
-        .btn-backup:hover { border-color: var(--accent-color); color: var(--accent-color); }
+        .list-grid { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; align-items: center; }
 
-        .btn-download { background: #222; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 5px 10px; font-size: 0.75rem; cursor: pointer; width: 100%; margin-top: 10px; }
+        #report-snapshot-area {
+            position: fixed;
+            left: -9999px;
+            top: 0;
+            width: 1200px;
+            background-color: white;
+            padding: 40px;
+            z-index: -100;
+        }
 
-        .btn-archive { width: 100%; margin-top: 30px; text-align: center; border: 1px dashed var(--text-secondary); color: var(--text-secondary); padding: 15px; background: transparent; cursor: pointer; }
-        .status-badge { cursor: pointer; user-select: none; transition: color 0.3s; }
-        .status-badge:hover { opacity: 0.8; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
-<body>
+<body class="min-h-screen pb-12">
 
-<div class="container">
-    <header>
-        <div>
-            <div style="display: flex; align-items: center;">
-                <h1>Titan Protocol</h1>
-                <button class="btn-history" onclick="openHistory()">📂 ARCHIVES</button>
+    <!-- 顶部导航 -->
+    <header class="bg-white border-b border-gray-100 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="text-white p-2 rounded-lg" style="background-color: var(--primary-emerald)">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-900">资金流向分析 Pro</h1>
+                    <p class="text-xs text-gray-500">报表导出 · 多维对比 · 智能去重 · 编辑管理</p>
+                </div>
             </div>
-            <div class="sub-header" id="date-header">SYNCING...</div>
+            <div class="flex items-center gap-2">
+                <button onclick="showExportModal()" class="text-sm font-medium px-3 py-1.5 rounded-md transition border border-gray-200 hover:bg-gray-50 text-gray-600">
+                    <i class="fa-solid fa-file-csv mr-1"></i> 导出CSV
+                </button>
+                <button onclick="generateReportImage()" class="text-sm font-medium px-3 py-1.5 rounded-md transition border border-gray-200 hover:bg-gray-50 text-gray-600">
+                    <i class="fa-solid fa-image mr-1"></i> 下载报表
+                </button>
+                <div class="h-4 w-px bg-gray-300 mx-1"></div>
+                <button onclick="checkForDuplicates()" class="text-sm font-medium px-3 py-1.5 rounded-md transition border border-orange-200 hover:bg-orange-50 text-orange-600">
+                    <i class="fa-solid fa-fingerprint mr-1"></i> 智能去重
+                </button>
+                <button onclick="showRulesModal()" class="text-sm font-medium px-3 py-1.5 rounded-md transition border border-gray-200" style="color: var(--primary-emerald); background-color: #fff;">
+                    <i class="fa-solid fa-gear mr-1"></i> 规则
+                </button>
+                <button onclick="clearData()" class="text-sm text-gray-500 hover:text-red-600 font-medium px-3 py-1.5 rounded-md hover:bg-red-50 transition">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
         </div>
-        <div id="clock" style="font-size: 1.2rem; font-weight: bold;">00:00</div>
     </header>
 
-    <div class="card">
-        <div style="display: flex; justify-content: space-between;">
-            <span class="status-badge" onclick="toggleInflammation()">🟢 炎症水平: <span id="inflammation-status">低</span></span>
-            <span class="status-badge" onclick="toggleMental()">🔵 精神: <span id="mental-status" style="color:var(--accent-color)">享受痛苦</span></span>
-        </div>
-    </div>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
-    <div class="section-title">MISSION TIMELINE</div>
-    <div id="schedule-list"></div>
-
-    <div class="section-title">TITAN REMODELING</div>
-    <div class="card">
-        <div id="workout-list"></div>
-    </div>
-
-    <div class="section-title">FUEL INJECTOR (2000 kcal)</div>
-    <div class="card">
-        <div style="margin-bottom: 10px; display:flex; justify-content:space-between;">
-            <span>今日额度</span>
-            <span><span id="cal-remaining" style="color:var(--accent-color); font-weight:bold;">2000</span> kcal 剩余</span>
-        </div>
-        <div class="progress-container">
-            <div class="progress-bar" id="cal-bar">0%</div>
-        </div>
-        
-        <div class="fuel-injector">
-            <div class="food-grid" id="food-grid"></div>
-            <div class="mass-control">
-                <input type="range" id="mass-slider" min="0" max="500" value="100" step="10" oninput="syncMassInput(this.value)">
-                <input type="number" id="mass-input" value="100" oninput="syncMassSlider(this.value)">
-                <span style="color:#666; font-size:0.8rem;">g</span>
-            </div>
-            <div class="action-grid">
-                <button class="btn-inject" onclick="injectFood('LUNCH')">>>> 午餐</button>
-                <button class="btn-inject" onclick="injectFood('DINNER')">>>> 晚餐</button>
-            </div>
-            <button class="btn-inject" style="width:100%; margin-top:10px; border-style:dashed;" onclick="addSupplements()">
-                + 鱼油/姜黄素/补剂 (50 kcal)
-            </button>
-        </div>
-        <div class="food-log-history" id="today-food-log"></div>
-    </div>
-
-    <button class="btn-archive" onclick="archiveDay()">⏹ 结束今日并归档 (END DAY)</button>
-</div>
-
-<!-- Archives Modal -->
-<div id="history-modal" class="modal-overlay">
-    <div class="modal-content">
-        <span class="close-modal" onclick="closeHistory()">&times;</span>
-        <h2 style="color:var(--accent-color); border-bottom: 1px solid #333; padding-bottom:10px;">MISSION ARCHIVES</h2>
-        
-        <div id="history-list"></div>
-
-        <!-- NEW: Backup/Restore Data Center -->
-        <div class="backup-control">
-            <div style="font-size: 0.7rem; color: #555; text-transform: uppercase;">Data Center (防止 Alook 丢档)</div>
-            <div class="backup-btn-group">
-                <button class="btn-backup" onclick="exportBackup()">📤 备份数据<br>(生成代码)</button>
-                <button class="btn-backup" onclick="importBackup()">📥 恢复数据<br>(输入代码)</button>
-            </div>
-        </div>
-
-        <div style="text-align: center; margin-top: 30px;">
-            <button onclick="clearHistory()" style="font-size: 0.7rem; border:1px solid #333; color: #444; background:transparent; padding:5px;">⚠️ CLEAR ALL DATA</button>
-        </div>
-    </div>
-</div>
-
-<script>
-    const scheduleData = [
-        { time: "07:00", title: "晨间启动", desc: "足底滚球 + 抱球呼吸" },
-        { time: "08:00", title: "送女儿上学", desc: "头贴头枕" },
-        { time: "09:30", title: "深度工作", hasInput: true, placeholder: "今日重点..." },
-        { time: "12:30", title: "第一餐", desc: "午饭后平躺20分钟" },
-        { time: "13:30", title: "深度工作", hasInput: true, placeholder: "午后重点..." },
-        { time: "15:00", title: "轻社交", hasInput: true, placeholder: "备注内容..." },
-        { time: "16:00", title: "接女儿放学", desc: "屈髋下蹲" },
-        { time: "17:30", title: "泰坦重塑训练", desc: "慢速离心 | 享受痛苦" },
-        { time: "19:00", title: "第二餐", desc: "鱼虾蟹 + 优质脂肪" },
-        { time: "22:00", title: "关机 & 呼吸", desc: "准备睡眠" }
-    ];
-
-    const workoutData = [
-        { id: "w1", title: "死虫子激活", reps: "3x12" },
-        { id: "w2", title: "高脚杯深蹲", reps: "4x8" },
-        { id: "w3", title: "保加利亚分腿蹲", reps: "3x8" },
-        { id: "w4", title: "慢速 RDL", reps: "4x10" }
-    ];
-
-    const foodDB = [
-        { name: "鸡/瘦肉", kcal: 150 }, { name: "肥牛/猪肉", kcal: 280 },
-        { name: "海鲜/鱼虾", kcal: 100 }, { name: "豆制品", kcal: 120 },
-        { name: "蔬菜/绿叶", kcal: 30 }, { name: "主食/米饭", kcal: 130 },
-        { name: "水果", kcal: 50 } 
-    ];
-
-    let totalCals = parseInt(localStorage.getItem('titan_cals')) || 0;
-    let dailyFoodLog = JSON.parse(localStorage.getItem('titan_food_log')) || [];
-    let selectedFoodIndex = -1;
-
-    window.onload = () => {
-        renderSchedule(); renderWorkouts(); renderFoodGrid(); updateCalUI(); renderFoodLog();
-        setInterval(updateClock, 1000); updateClock(); updateDate();
-    };
-
-    function updateClock() {
-        const now = new Date();
-        document.getElementById('clock').innerText = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        const currentMin = now.getHours() * 60 + now.getMinutes();
-        document.querySelectorAll('.timeline-item').forEach((item, index, items) => {
-            item.classList.remove('active');
-            const [h, m] = item.dataset.time.split(':').map(Number);
-            const itemTime = h * 60 + m;
-            let nextItemTime = index < items.length - 1 ? items[index+1].dataset.time.split(':').map(Number)[0]*60 + items[index+1].dataset.time.split(':').map(Number)[1] : itemTime + 90;
-            if (currentMin >= itemTime && currentMin < nextItemTime) item.classList.add('active');
-        });
-    }
-
-    function updateDate() {
-        const now = new Date();
-        const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-        const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.');
-        document.getElementById('date-header').innerText = `${dateStr} | ${days[now.getDay()]}`;
-    }
-
-    /* --- STATUS TOGGLES --- */
-    function toggleInflammation() {
-        const el = document.getElementById('inflammation-status');
-        const states = ['待测', '低', '中', '高'];
-        const colors = ['#888', '#00ff41', '#ffcc00', '#ff3333'];
-        let idx = states.indexOf(el.innerText);
-        idx = (idx + 1) % states.length;
-        el.innerText = states[idx];
-        el.style.color = colors[idx];
-    }
-
-    function toggleMental() {
-        const el = document.getElementById('mental-status');
-        const states = ['享受痛苦', '极度专注', '稍微疲惫', '意志力衰竭'];
-        const colors = ['#00ff41', '#00ffff', '#ffcc00', '#ff3333'];
-        let idx = states.indexOf(el.innerText);
-        idx = (idx + 1) % states.length;
-        el.innerText = states[idx];
-        el.style.color = colors[idx];
-    }
-
-    /* --- SCHEDULE & WORKOUT --- */
-    function renderSchedule() {
-        const container = document.getElementById('schedule-list');
-        container.innerHTML = '';
-        scheduleData.forEach(item => {
-            const isCompleted = localStorage.getItem(`titan_schedule_${item.time}`) === 'true';
-            const savedValue = localStorage.getItem(`titan_note_${item.time}`) || '';
-            const div = document.createElement('div');
-            div.className = `timeline-item ${isCompleted ? 'completed' : ''}`;
-            div.dataset.time = item.time;
-            div.innerHTML = `
-                <input type="checkbox" class="schedule-checkbox" ${isCompleted ? 'checked' : ''} onchange="toggleSchedule('${item.time}', this)">
-                <div class="time">${item.time}</div>
-                <div class="task">
-                    <div class="task-title">${item.title}</div>
-                    ${item.desc ? `<span class="task-detail">${item.desc}</span>` : ''}
-                    ${item.hasInput ? `<input type="text" class="task-input" id="note-${item.time}" value="${savedValue}" oninput="localStorage.setItem('titan_note_${item.time}', this.value)" ${isCompleted ? 'disabled' : ''}>` : ''}
+        <!-- 导入区域 -->
+        <section class="card p-6 bg-gradient-to-r from-emerald-50 to-white border-emerald-100">
+            <div class="flex flex-col md:flex-row gap-6 items-center">
+                <div class="flex-1">
+                    <h2 class="text-lg font-bold text-gray-900 mb-2">导入账单文件</h2>
+                    <p class="text-sm text-gray-600 mb-4">
+                        支持 <span class="font-semibold text-green-600"><i class="fa-brands fa-weixin"></i> 微信支付</span> 和 
+                        <span class="font-semibold text-blue-600"><i class="fa-brands fa-alipay"></i> 支付宝</span> 导出的 CSV 文件。
+                    </p>
+                    <div class="relative group">
+                        <input type="file" id="fileInput" multiple accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="handleFileSelect(this)">
+                        <div class="flex items-center gap-3 bg-white border border-gray-300 border-dashed text-gray-600 px-4 py-3 rounded-xl group-hover:border-emerald-400 group-hover:bg-emerald-50 transition">
+                            <i class="fa-solid fa-cloud-arrow-up text-xl" style="color: var(--primary-emerald)"></i>
+                            <span id="fileLabel" class="font-medium">点击选择或拖拽文件到这里</span>
+                        </div>
+                    </div>
                 </div>
-            `;
-            container.appendChild(div);
-        });
-    }
+                <div class="w-full md:w-auto flex flex-col gap-2">
+                     <button onclick="processFiles()" class="btn-primary px-8 py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-chart-pie"></i> 开始分析
+                    </button>
+                </div>
+            </div>
+        </section>
 
-    function toggleSchedule(time, cb) { localStorage.setItem(`titan_schedule_${time}`, cb.checked); renderSchedule(); }
-    function renderWorkouts() {
-        const container = document.getElementById('workout-list');
-        workoutData.forEach(item => {
-            const isChecked = localStorage.getItem('titan_workout_' + item.id) === 'true' ? 'checked' : '';
-            container.innerHTML += `<div class="workout-item">
-                <input type="checkbox" class="workout-check" id="${item.id}" ${isChecked} onchange="localStorage.setItem('titan_workout_${item.id}', this.checked)">
-                <label for="${item.id}" style="width:100%">${item.title}</label><span class="rep-scheme">${item.reps}</span>
-            </div>`;
-        });
-    }
+        <!-- 增强型统计周期控制器 -->
+        <section class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-gray-700"><i class="fa-regular fa-calendar-days mr-2"></i>统计周期:</span>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="compareToggle" class="sr-only peer" onchange="toggleCompareMode()">
+                        <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all transition-colors duration-200"></div>
+                        <span class="ms-2 text-sm font-medium text-gray-600">开启对比模式</span>
+                    </label>
+                </div>
 
-    /* --- FOOD --- */
-    function renderFoodGrid() {
-        const container = document.getElementById('food-grid');
-        foodDB.forEach((f, i) => {
-            const div = document.createElement('div');
-            div.className = `food-chip ${i === selectedFoodIndex ? 'selected' : ''}`;
-            div.onclick = () => { selectedFoodIndex = i; document.querySelectorAll('.food-chip').forEach(c => c.classList.remove('selected')); div.classList.add('selected'); };
-            div.innerHTML = `<div>${f.name}</div><span style="font-size:0.6rem;opacity:0.6">${f.kcal}/100g</span>`;
-            container.appendChild(div);
-        });
-    }
-    function syncMassInput(v) { document.getElementById('mass-input').value = v; }
-    function syncMassSlider(v) { document.getElementById('mass-slider').value = v; }
-    function injectFood(type) {
-        if(selectedFoodIndex === -1) return;
-        const mass = parseInt(document.getElementById('mass-input').value);
-        const kcal = Math.round(mass / 100 * foodDB[selectedFoodIndex].kcal);
-        totalCals += kcal; dailyFoodLog.push({ desc: `[${type}] ${foodDB[selectedFoodIndex].name} ${mass}g`, kcal });
-        localStorage.setItem('titan_cals', totalCals); localStorage.setItem('titan_food_log', JSON.stringify(dailyFoodLog));
-        updateCalUI(); renderFoodLog();
-    }
-    function addSupplements() {
-        totalCals += 50; localStorage.setItem('titan_cals', totalCals);
-        dailyFoodLog.push({ desc: "[SUPPS] 鱼油/姜黄素", kcal: 50 });
-        localStorage.setItem('titan_food_log', JSON.stringify(dailyFoodLog));
-        updateCalUI(); renderFoodLog();
-    }
-    function renderFoodLog() {
-        const container = document.getElementById('today-food-log'); container.innerHTML = '';
-        dailyFoodLog.forEach((item, i) => {
-            container.innerHTML = `<div class="food-log-item"><div><span class="delete-btn" onclick="deleteFood(${i})">[x]</span>${item.desc}</div><span>${item.kcal}</span></div>` + container.innerHTML;
-        });
-    }
-    function deleteFood(i) { totalCals -= dailyFoodLog[i].kcal; dailyFoodLog.splice(i, 1); localStorage.setItem('titan_cals', totalCals); localStorage.setItem('titan_food_log', JSON.stringify(dailyFoodLog)); updateCalUI(); renderFoodLog(); }
-    function updateCalUI() {
-        const pct = Math.min(totalCals / 2000 * 100, 100);
-        document.getElementById('cal-remaining').innerText = Math.max(2000 - totalCals, 0);
-        const bar = document.getElementById('cal-bar'); bar.style.width = pct + '%'; bar.innerText = totalCals + ' kcal';
-        bar.style.backgroundColor = totalCals > 2000 ? 'var(--danger-color)' : (pct > 80 ? 'var(--warning-color)' : 'var(--accent-color)');
-    }
+                <!-- 周期 A -->
+                <div class="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
+                    <span class="text-xs font-bold" style="color: var(--primary-emerald)">时段 A (翡翠)</span>
+                    <select id="periodTypeA" onchange="updatePeriodOptions('A')" class="text-sm border-gray-300 rounded focus:ring-emerald-500 focus:border-emerald-500 p-1 border bg-white">
+                        <option value="all">全部</option>
+                        <option value="year">按年</option>
+                        <option value="quarter">按季</option>
+                        <option value="month" selected>按月</option>
+                    </select>
+                    <select id="periodValueA" onchange="updateStats()" class="text-sm border-gray-300 rounded focus:ring-emerald-500 focus:border-emerald-500 p-1 border min-w-[100px] bg-white">
+                    </select>
+                </div>
 
-    /* --- BACKUP & RECOVERY --- */
-    function exportBackup() {
-        const data = {};
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith('titan_')) data[key] = localStorage.getItem(key);
+                <!-- 周期 B -->
+                <div id="periodBContainer" class="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 hidden">
+                    <span class="text-xs font-bold text-amber-600">时段 B (琥珀)</span>
+                    <select id="periodTypeB" onchange="updatePeriodOptions('B')" class="text-sm border-gray-300 rounded focus:ring-amber-500 focus:border-amber-500 p-1 border bg-white">
+                        <option value="all">全部</option>
+                        <option value="year">按年</option>
+                        <option value="quarter">按季</option>
+                        <option value="month" selected>按月</option>
+                    </select>
+                    <select id="periodValueB" onchange="updateStats()" class="text-sm border-gray-300 rounded focus:ring-amber-500 focus:border-amber-500 p-1 border min-w-[100px] bg-white">
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- 第一部分：总览 -->
+        <h2 class="text-lg font-bold text-gray-800 border-l-4 pl-3" style="border-color: var(--primary-emerald)">资金总览 <span class="text-xs font-normal text-gray-400 ml-2">(点击卡片查看明细)</span></h2>
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- 总收入 -->
+            <div onclick="showOverviewDetail('income')" class="card p-5 border-l-4 border-green-500 clickable-card group relative overflow-hidden">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider card-title-text group-hover:text-green-600">总收入</span>
+                    <span class="icon-box bg-green-100 text-green-600 text-xs"><i class="fa-solid fa-arrow-down"></i></span>
+                </div>
+                <div class="text-2xl font-bold text-gray-800" id="statIncome">¥0.00</div>
+                <div class="flex justify-between items-end mt-1">
+                    <div class="text-xs text-gray-400" id="incomeCount">0 笔</div>
+                    <div class="text-xs font-medium" id="incomeTrend"></div>
+                </div>
+            </div>
+            
+            <!-- 总支出 -->
+            <div onclick="showOverviewDetail('expense')" class="card p-5 border-l-4 border-red-500 clickable-card group relative overflow-hidden">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider card-title-text group-hover:text-red-600">总支出</span>
+                    <span class="icon-box bg-red-100 text-red-600 text-xs"><i class="fa-solid fa-arrow-up"></i></span>
+                </div>
+                <div class="text-2xl font-bold text-gray-800" id="statExpense">¥0.00</div>
+                <div class="flex justify-between items-end mt-1">
+                    <div class="text-xs text-gray-400" id="expenseCount">0 笔</div>
+                    <div class="text-xs font-medium" id="expenseTrend"></div>
+                </div>
+            </div>
+
+            <!-- 结余 -->
+            <div onclick="showOverviewDetail('balance')" class="card p-5 border-l-4 border-blue-500 clickable-card group">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider card-title-text group-hover:text-blue-600">净结余</span>
+                    <span class="icon-box bg-blue-100 text-blue-600 text-xs"><i class="fa-solid fa-scale-balanced"></i></span>
+                </div>
+                <div class="text-2xl font-bold text-gray-800" id="statBalance">¥0.00</div>
+                <div class="flex justify-between items-end mt-1">
+                    <div class="text-xs text-gray-400">收入 - 支出</div>
+                    <div class="text-xs font-medium" id="balanceTrend"></div>
+                </div>
+            </div>
+
+            <!-- 中性/其他 -->
+            <div onclick="showOverviewDetail('neutral')" class="card p-5 border-l-4 border-gray-400 bg-gray-50 clickable-card group">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider card-title-text group-hover:text-gray-600">中性/流转</span>
+                    <span class="icon-box bg-gray-200 text-gray-600 text-xs"><i class="fa-solid fa-rotate"></i></span>
+                </div>
+                <div class="text-2xl font-bold text-gray-600" id="statNeutral">¥0.00</div>
+                <div class="flex justify-between items-end mt-1">
+                    <div class="text-xs text-gray-400">提现/还款/理财</div>
+                    <div class="text-xs font-medium" id="neutralTrend"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 第二部分：深度消费习惯分析 -->
+        <div class="flex items-center justify-between pt-4">
+            <h2 class="text-lg font-bold text-gray-800 border-l-4 border-purple-600 pl-3">消费习惯与收入分析</h2>
+        </div>
+        
+        <section class="card min-h-[500px]">
+            <div class="flex border-b border-gray-200 px-6 pt-2 overflow-x-auto">
+                <button onclick="switchTab('family')" id="tab-family" class="tab-active px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-house-chimney mr-2"></i>家庭开支
+                </button>
+                <button onclick="switchTab('personal')" id="tab-personal" class="tab-inactive px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-user mr-2"></i>个人支出
+                </button>
+                <button onclick="switchTab('income')" id="tab-income" class="tab-inactive px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-hand-holding-dollar mr-2"></i>收入来源
+                </button>
+                <button onclick="switchTab('neutral')" id="tab-neutral" class="tab-inactive px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-rotate mr-2"></i>中性/流转
+                </button>
+            </div>
+
+            <div class="p-6">
+                <!-- 1. 家庭开支 -->
+                <div id="content-family" class="block space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-500 uppercase mb-4">开支构成对比</h4>
+                            <div class="h-64 relative">
+                                <canvas id="chartFamily"></canvas>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-500 uppercase mb-4">各项占比 (点击查看明细)</h4>
+                            <div class="space-y-4 pr-2" id="familyProgressList"></div>
+                        </div>
+                    </div>
+                    <div class="pt-6 border-t border-gray-100">
+                        <h4 class="text-sm font-bold text-gray-500 uppercase mb-4">亲情卡/亲友代付分析</h4>
+                        <div class="bg-gray-50 rounded-xl p-4 overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead id="familyCardHead"></thead>
+                                <tbody id="familyCardList" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 个人支出 -->
+                <div id="content-personal" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-500 uppercase mb-4">个人高频消费对比</h4>
+                            <div class="h-64 relative">
+                                <canvas id="chartPersonal"></canvas>
+                            </div>
+                        </div>
+                        <div class="flex flex-col h-[350px]">
+                            <h4 class="text-sm font-bold text-gray-500 uppercase mb-4 flex justify-between">
+                                <span>分类明细</span>
+                                <span class="text-xs font-normal normal-case" style="color: var(--primary-emerald)"><i class="fa-regular fa-hand-pointer"></i> 点击查看明细</span>
+                            </h4>
+                            <div class="overflow-y-auto flex-1 pr-2">
+                                <div id="personalDetailList" class="space-y-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 收入来源 -->
+                <div id="content-income" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-2">
+                            <h4 class="text-sm font-bold text-gray-500 uppercase mb-4 flex justify-between">
+                                <span>收入业务分析</span>
+                                <span class="text-xs font-normal normal-case" style="color: var(--primary-emerald)"><i class="fa-regular fa-hand-pointer"></i> 点击查看明细</span>
+                            </h4>
+                            <div class="overflow-hidden rounded-xl border border-gray-200">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50" id="incomeSourceHead">
+                                        <!-- JS Fill -->
+                                    </thead>
+                                    <tbody id="incomeSourceList" class="divide-y divide-gray-200 bg-white"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-500 uppercase mb-4">来源构成</h4>
+                            <div class="h-64 relative">
+                                <canvas id="chartIncome"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 中性/流转 -->
+                <div id="content-neutral" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-500 uppercase mb-4">中性流转构成</h4>
+                            <div class="h-64 relative">
+                                <canvas id="chartNeutral"></canvas>
+                            </div>
+                        </div>
+                        <div class="flex flex-col h-[350px]">
+                            <h4 class="text-sm font-bold text-gray-500 uppercase mb-4 flex justify-between">
+                                <span>分类明细</span>
+                                <span class="text-xs font-normal normal-case" style="color: var(--primary-emerald)"><i class="fa-regular fa-hand-pointer"></i> 点击查看明细</span>
+                            </h4>
+                            <div class="overflow-y-auto flex-1 pr-2">
+                                <div id="neutralDetailList" class="space-y-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 详细数据列表 -->
+        <details class="card overflow-hidden" open>
+            <summary class="p-6 cursor-pointer font-bold text-gray-800 flex items-center gap-2 select-none">
+                <i class="fa-solid fa-list text-gray-400"></i> 查看原始交易明细（时段 A）
+            </summary>
+            
+            <div class="px-6 pt-2 pb-2" id="uncategorizedReminderContainer">
+                <div id="uncategorizedReminder" class="text-sm"></div>
+            </div>
+
+            <!-- 搜索过滤栏 -->
+            <div class="px-6 pb-4 border-b border-gray-100 flex flex-col md:flex-row items-center gap-3 bg-gray-50/50 flex-wrap">
+                <!-- 收支类型过滤 -->
+                <select id="searchTypeFilter" onchange="handleSearch()" class="pl-3 pr-8 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition bg-white text-gray-600 w-full md:w-auto font-medium">
+                    <option value="all">全部收支</option>
+                    <option value="income">仅看收入</option>
+                    <option value="expense">仅看支出</option>
+                    <option value="uncategorized" class="text-red-500 font-bold">⚠️ 仅看未分类</option>
+                </select>
+                
+                <div class="relative flex-1 w-full max-w-md">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="1. 搜索金额、对象、日期或状态..." class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition bg-white">
+                </div>
+                <div class="hidden md:block text-gray-300 font-light">+</div>
+                <!-- 二次检索框 -->
+                <div class="relative flex-1 w-full max-w-md">
+                    <i class="fa-solid fa-filter absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="searchInput2" oninput="handleSearch()" placeholder="2. 二次筛选关键词..." class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition bg-white">
+                </div>
+                
+                <div class="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0 justify-end flex-1">
+                    <!-- 临时统计看板 -->
+                    <div id="searchStatsPanel" class="hidden text-xs bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-lg text-emerald-800 flex gap-3 shadow-sm mr-auto md:mr-0">
+                        <span>共 <b id="s-count">0</b> 笔</span>
+                        <span class="text-green-600">入: <b id="s-income">¥0.00</b></span>
+                        <span class="text-red-500">出: <b id="s-expense">¥0.00</b></span>
+                    </div>
+
+                    <!-- 批量操作按钮 -->
+                    <button onclick="batchEdit()" class="batch-btn-group hidden px-3 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-medium hover:bg-emerald-100 transition border border-emerald-200 shadow-sm">
+                        <i class="fa-solid fa-pen-to-square mr-1"></i> 批量备注
+                    </button>
+                    <button onclick="batchDelete()" class="batch-btn-group hidden px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition border border-red-200 shadow-sm">
+                        <i class="fa-solid fa-trash-can mr-1"></i> 删除 (<span class="batch-count-display">0</span>)
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="text-xs text-gray-500 border-b border-gray-200 bg-gray-50/50">
+                            <th class="p-4 w-10 text-center"><input type="checkbox" id="selectAllBox" onchange="toggleSelectAll(this, 'main')" class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"></th>
+                            <th class="p-4 font-medium">时间</th>
+                            <th class="p-4 font-medium">账户/渠道</th>
+                            <th class="p-4 font-medium">状态</th>
+                            <th class="p-4 font-medium">交易对象 & 商品 (含备注)</th>
+                            <th class="p-4 font-medium">智能分类</th>
+                            <th class="p-4 font-medium">匹配依据</th>
+                            <th class="p-4 font-medium text-right">金额</th>
+                            <th class="p-4 font-medium text-center w-24">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionList" class="text-sm text-gray-700"></tbody>
+                </table>
+            </div>
+        </details>
+
+    </main>
+
+    <!-- 编辑流水弹窗 -->
+    <div id="editTxModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-[150] backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 m-4 animate-[fadeIn_0.1s_ease-out]">
+            <h3 class="text-lg font-bold text-gray-800 mb-2">编辑交易备注</h3>
+            <p class="text-xs text-gray-500 mb-4">添加备注可帮助交易匹配到特定的分类规则。</p>
+            
+            <input type="hidden" id="editTxId">
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-gray-700 mb-1">原始信息 (不可改)</label>
+                <div class="p-3 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-200">
+                    <div id="editTxInfoName" class="font-bold truncate"></div>
+                    <div id="editTxInfoItem" class="text-xs truncate mt-1"></div>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-xs font-medium text-gray-700 mb-1">备注 (将作为匹配依据)</label>
+                <input type="text" id="editTxRemark" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="输入关键词...">
+            </div>
+            
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('editTxModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
+                <button onclick="saveTxEdit()" class="px-4 py-2 text-sm text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情弹窗 -->
+    <div id="detailModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-[100] backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col m-4 animate-[fadeIn_0.2s_ease-out]">
+            <div class="p-5 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+                <div>
+                    <h3 id="modalTitle" class="text-lg font-bold text-gray-800">分类详情</h3>
+                    <p id="modalSubtitle" class="text-xs text-gray-500 mt-1"></p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="batch-btn-group-modal hidden flex items-center gap-2 mr-4">
+                        <button onclick="batchEdit()" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-medium hover:bg-emerald-100 transition border border-emerald-200 shadow-sm">
+                            <i class="fa-solid fa-pen-to-square mr-1"></i> 批量备注
+                        </button>
+                        <button onclick="batchDelete()" class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition border border-red-200 shadow-sm">
+                            <i class="fa-solid fa-trash-can mr-1"></i> 删除 (<span class="batch-count-display-modal">0</span>)
+                        </button>
+                    </div>
+                    <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-500 transition">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-y-auto flex-1 p-0">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50 sticky top-0 shadow-sm text-xs uppercase text-gray-500">
+                        <tr>
+                            <th class="px-4 py-3 w-10 text-center"><input type="checkbox" id="selectAllModalBox" onchange="toggleSelectAll(this, 'modal')" class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"></th>
+                            <th class="px-6 py-3 font-medium">时间</th>
+                            <th class="px-6 py-3 font-medium">来源</th>
+                            <th class="px-6 py-3 font-medium">交易对象 / 商品</th>
+                            <th class="px-6 py-3 font-medium text-right">金额</th>
+                            <th class="px-6 py-3 font-medium text-center w-24">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalBody" class="divide-y divide-gray-100 text-gray-700"></tbody>
+                </table>
+            </div>
+            <div class="p-4 border-t bg-gray-50 rounded-b-xl text-right">
+                <button onclick="closeModal()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 font-medium shadow-sm">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导出选项弹窗 -->
+    <div id="exportModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-[100] backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 m-4">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">导出 CSV 数据</h3>
+            <div class="space-y-4">
+                <p class="text-sm text-gray-600">请选择要导出的数据范围：</p>
+                <div class="flex gap-2">
+                     <button onclick="performExport('all')" class="flex-1 py-3 px-4 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm font-medium text-gray-700 transition">
+                        全部数据
+                    </button>
+                    <button onclick="performExport('current')" class="flex-1 py-3 px-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium hover:bg-emerald-100 transition">
+                        当前视图 (时段A)
+                    </button>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                 <button onclick="closeExportModal()" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 规则编辑弹窗 -->
+    <div id="rulesModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-[100] backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col m-4">
+            <div class="p-5 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800">分类规则管理</h3>
+                    <p class="text-xs text-gray-500">修改后实时生效，自动保存</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="document.getElementById('ruleFileInput').click()" class="text-xs text-emerald-600 hover:text-emerald-700 underline mr-2">导入规则</button>
+                    <input type="file" id="ruleFileInput" accept=".json" class="hidden" onchange="importRules(this)">
+                    <button onclick="exportRules()" class="text-xs text-blue-600 hover:text-blue-700 underline mr-2">导出规则</button>
+                    <button onclick="resetRulesToDefault()" class="text-xs text-red-500 hover:text-red-700 underline mr-2">恢复默认规则</button>
+                    <button onclick="closeRulesModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-500 transition">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-hidden flex flex-col md:flex-row">
+                <!-- 侧边栏：添加新规则 -->
+                <div class="w-full md:w-1/3 bg-gray-50 p-5 border-r border-gray-100 overflow-y-auto">
+                    <h4 class="font-bold text-gray-700 mb-4 text-sm uppercase">添加新规则</h4>
+                    <form onsubmit="event.preventDefault(); addNewRule();" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">所属分组</label>
+                            <select id="newRuleGroup" class="w-full rounded-lg border-gray-300 border p-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                                <option value="family">家庭开支</option>
+                                <option value="personal">个人支出</option>
+                                <option value="income">收入业务</option>
+                                <option value="neutral">中性/还款</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">子分类/业务名称</label>
+                            <input type="text" id="newRuleName" placeholder="例如：公司1分红" class="w-full rounded-lg border-gray-300 border p-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">关键词 (逗号分隔)</label>
+                            <textarea id="newRuleKeywords" placeholder="例如：XX科技, 股息" class="w-full rounded-lg border-gray-300 border p-2 text-sm h-20 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none" required></textarea>
+                            <p class="text-xs text-gray-400 mt-1">只要包含任意一个关键词即命中</p>
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg text-sm transition shadow-sm" style="background-color: var(--primary-emerald)">
+                            <i class="fa-solid fa-plus mr-1"></i> 添加规则
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 主区域：现有规则列表 -->
+                <div class="w-full md:w-2/3 p-5 overflow-y-auto" id="rulesListContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 去重确认弹窗 -->
+    <div id="dedupModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-[100] backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col m-4 animate-[fadeIn_0.2s_ease-out]">
+            <div class="p-5 border-b flex justify-between items-center bg-orange-50 rounded-t-xl">
+                <div>
+                    <h3 class="text-lg font-bold text-orange-800"><i class="fa-solid fa-fingerprint mr-2"></i>智能去重</h3>
+                    <p class="text-xs text-orange-600 mt-1">系统已通过指纹识别(时间+金额+类型+对象)找到以下疑似重复项。</p>
+                </div>
+                <button onclick="closeDedupModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-orange-200 text-orange-500 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-0 bg-gray-50">
+                <div id="dedupList" class="p-4 space-y-4">
+                </div>
+            </div>
+
+            <div class="p-4 border-t bg-white rounded-b-xl flex justify-between items-center shadow-lg">
+                <div class="text-xs text-gray-500">
+                    已选中 <span id="dedupSelectedCount" class="font-bold text-orange-600 text-base">0</span> 条待删除数据
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeDedupModal()" class="px-5 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-200 font-medium transition">取消</button>
+                    <button onclick="executeDeduplication()" class="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium shadow-md transition flex items-center">
+                        <i class="fa-solid fa-trash-can mr-2"></i> 确认删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隐藏的报表生成区域 -->
+    <div id="report-snapshot-area">
+        <div class="p-8 bg-white" style="font-family: sans-serif;">
+            <div class="flex justify-between items-center mb-8 border-b pb-4">
+                <h1 class="text-2xl font-bold text-gray-800">个人财务分析报表</h1>
+                <div class="text-right">
+                    <p class="text-sm text-gray-500" id="report-date"></p>
+                    <p class="text-xs text-gray-400">Generated by Pro V12</p>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-4 gap-4 mb-8">
+                <div class="p-4 border rounded-lg bg-emerald-50 border-emerald-100">
+                    <p class="text-xs text-gray-500 uppercase">总收入</p>
+                    <p class="text-2xl font-bold text-emerald-600" id="rep-income">¥0.00</p>
+                </div>
+                <div class="p-4 border rounded-lg bg-red-50 border-red-100">
+                    <p class="text-xs text-gray-500 uppercase">总支出</p>
+                    <p class="text-2xl font-bold text-red-600" id="rep-expense">¥0.00</p>
+                </div>
+                <div class="p-4 border rounded-lg bg-blue-50 border-blue-100">
+                    <p class="text-xs text-gray-500 uppercase">净结余</p>
+                    <p class="text-2xl font-bold text-blue-600" id="rep-balance">¥0.00</p>
+                </div>
+                 <div class="p-4 border rounded-lg bg-gray-50 border-gray-100">
+                    <p class="text-xs text-gray-500 uppercase">中性流转</p>
+                    <p class="text-2xl font-bold text-gray-600" id="rep-neutral">¥0.00</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-8 mb-8">
+                <div>
+                    <h3 class="font-bold text-gray-700 mb-4 border-l-4 border-emerald-500 pl-3">家庭开支</h3>
+                    <div class="h-64 relative border rounded-lg p-2"><canvas id="rep-chart-family"></canvas></div>
+                    <div id="rep-list-family" class="mt-4 text-sm space-y-2"></div>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-700 mb-4 border-l-4 border-emerald-500 pl-3">个人支出</h3>
+                    <div class="h-64 relative border rounded-lg p-2"><canvas id="rep-chart-personal"></canvas></div>
+                     <div id="rep-list-personal" class="mt-4 text-sm space-y-2"></div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="font-bold text-gray-700 mb-4 border-l-4 border-emerald-500 pl-3">收入来源</h3>
+                <div class="border rounded-lg overflow-hidden">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr><th class="p-3 text-left">来源/业务</th><th class="p-3 text-right">金额</th></tr>
+                        </thead>
+                        <tbody id="rep-list-income" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            storageKey: 'personal_finance_record_v6', 
+            rulesKey: 'personal_finance_rules_v6',
+            maxListItems: 300 
+        };
+
+        const DEFAULT_RULES = [
+            { id: 1, group: 'neutral', subCategory: '信用卡还款', keywords: ['信用卡', '还款'] },
+            { id: 2, group: 'family', subCategory: '亲情卡/代付', keywords: ['亲情卡', '亲友代付', '代付'] },
+            { id: 3, group: 'family', subCategory: '加油费', keywords: ['加油', '石化', '石油', '中石化', '中石油'] },
+            { id: 4, group: 'family', subCategory: '电费', keywords: ['电费', '供电', '国网'] },
+            { id: 5, group: 'family', subCategory: '水费', keywords: ['水费', '水务', '自来水'] },
+            { id: 6, group: 'personal', subCategory: '停车费', keywords: ['停车', '捷停车', '顺易通', '泊车'] },
+            { id: 7, group: 'personal', subCategory: '手机费', keywords: ['话费', '联通', '移动', '电信'] },
+            { id: 8, group: 'personal', subCategory: '交通出行', keywords: ['滴滴', '打车', '出行', '车费', '铁路', '火车', '地铁', '公交', 'ETC', '代驾'] },
+            { id: 9, group: 'personal', subCategory: '外卖/餐饮', keywords: ['外卖', '美团', '饿了么', '餐饮', '美食', '星巴克', '瑞幸', '麦当劳', '肯德基', '必胜客', '喜茶', '奈雪', '茶', '咖啡', '酒', '面', '粉', '饭', '食', '罗森', '7-11', '便利店', '全家', '十足', '超市', '古茗', '烧烤', '火锅'] },
+            { id: 10, group: 'personal', subCategory: '娱乐/订阅', keywords: ['会员', '视频', '影视', '游戏', '高尔夫', '乐园', '影城', 'KTV', '网易', '腾讯', '爱奇艺', '优酷', '芒果', '极光', 'SVIP', '水舞涧'] },
+            { id: 11, group: 'personal', subCategory: '快递物流', keywords: ['顺丰', '圆通', '中通', '申通', '韵达', '菜鸟', '驿站', '快递', '速运'] },
+            { id: 12, group: 'personal', subCategory: '购物/百货', keywords: ['购物', '百货', '商城', '淘宝', '京东', '拼多多', '唯品会', '苏宁', '优衣库', '服饰', '鞋', '衣', '镜', '家居', '电器', '数码', '公牛', '插座', '书'] },
+            { id: 13, group: 'income', subCategory: '利息收入', keywords: ['利息', '结息'] },
+            { id: 14, group: 'income', subCategory: '工资/奖金', keywords: ['工资', '奖金', '薪资', '报销'] }
+        ];
+
+        let globalTransactions = [];
+        let activeRules = []; 
+        let charts = { family: null, personal: null, income: null, neutral: null };
+        let habitDataCache = { A: null, B: null };
+        let overviewCache = { income: [], expense: [], neutral: [], balance: [] }; 
+        let reportChartInstances = {}; 
+        
+        let dateOptions = { years: [], months: [], quarters: [] };
+        let filterA = { type: 'month', value: '' };
+        let filterB = { type: 'month', value: '' };
+        let isCompareMode = false;
+        
+        let selectedTxIds = new Set();
+        let currentPeriodTransactions = []; 
+        let currentPeriodTransactionsFiltered = []; 
+        let currentModalList = []; 
+
+        function formatMoney(amount, decimals = 2) {
+            return Number(amount).toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
         }
-        const str = btoa(encodeURIComponent(JSON.stringify(data)));
-        const tempInput = document.createElement('textarea');
-        tempInput.value = str; document.body.appendChild(tempInput);
-        tempInput.select(); document.execCommand('copy'); document.body.removeChild(tempInput);
-        alert("✅ 备份代码已复制到剪贴板！\n请粘贴到备忘录中。");
-    }
 
-    function importBackup() {
-        const str = prompt("请输入备份代码 (从备忘录中拷贝)：");
-        if (!str) return;
-        try {
-            const data = JSON.parse(decodeURIComponent(atob(str)));
-            Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
-            alert("✅ 数据恢复成功！页面将刷新。");
-            location.reload();
-        } catch(e) { alert("❌ 备份代码格式错误，无法恢复。"); }
-    }
+        window.clearSelection = function() {
+            selectedTxIds.clear();
+            ['selectAllBox', 'selectAllModalBox'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.checked = false;
+            });
+            updateBatchBtn();
+        }
 
-    /* --- ARCHIVE & REPORT --- */
-    function archiveDay() {
-        if(!confirm("确定结束今日并归档吗？")) return;
+        window.showPersonalDetail = function(key, type) {
+            let data = habitDataCache.A && habitDataCache.A[type] ? habitDataCache.A[type].breakdown[key] : null;
+            if (!data && isCompareMode && habitDataCache.B && habitDataCache.B[type]) {
+                data = habitDataCache.B[type].breakdown[key];
+            }
+            if(data) openDetailModal(key, data.items, data.amount);
+        }
         
-        // Count Schedule Items
-        let schedDone = 0;
-        scheduleData.forEach(s => { if(localStorage.getItem(`titan_schedule_${s.time}`) === 'true') schedDone++; });
+        window.showFamilyDetail = function(key) {
+            let data = habitDataCache.A && habitDataCache.A.family ? habitDataCache.A.family.breakdown[key] : null;
+            if (!data && isCompareMode && habitDataCache.B && habitDataCache.B.family) {
+                data = habitDataCache.B.family.breakdown[key];
+            }
+            if(data) openDetailModal(key, data.items, data.amount);
+        }
 
-        const entry = { id: Date.now(), date: new Date().toLocaleDateString('zh-CN'), calories: totalCals, 
-            workouts: workoutData.filter(w => localStorage.getItem('titan_workout_'+w.id)==='true').map(w => w.title),
-            scheduleDone: schedDone,
-            scheduleTotal: scheduleData.length,
-            notes: scheduleData.filter(s => s.hasInput).map(s => `[${s.time}] ${localStorage.getItem('titan_note_'+s.time)||''}`).join('\n'),
-            foodLog: dailyFoodLog
-        };
-        let history = JSON.parse(localStorage.getItem('titan_history') || "[]");
-        history.unshift(entry); localStorage.setItem('titan_history', JSON.stringify(history));
-        // Clear daily
-        localStorage.removeItem('titan_cals'); localStorage.removeItem('titan_food_log');
-        scheduleData.forEach(s => { localStorage.removeItem(`titan_schedule_${s.time}`); localStorage.removeItem(`titan_note_${s.time}`); });
-        workoutData.forEach(w => localStorage.removeItem(`titan_workout_${w.id}`));
-        location.reload();
-    }
-
-    function openHistory() {
-        const modal = document.getElementById('history-modal');
-        const list = document.getElementById('history-list');
-        const history = JSON.parse(localStorage.getItem('titan_history') || "[]");
-        list.innerHTML = history.length === 0 ? '<div style="color:#444;text-align:center;padding:20px;">无历史数据</div>' : '';
-        history.forEach(e => {
-            const calPct = Math.round((e.calories / 2000) * 100);
-            list.innerHTML += `<div class="history-entry">
-                <div class="history-date">${e.date}</div>
-                <div style="font-size:0.8rem; color:#888;">摄入: ${e.calories} kcal (${calPct}%) | 训练: ${e.workouts.length} 项</div>
-                <button class="btn-download" onclick="downloadReport(${e.id})">⇩ DOWNLOAD REPORT IMAGE</button>
-            </div>`;
-        });
-        modal.style.display = 'flex';
-    }
-    function closeHistory() { document.getElementById('history-modal').style.display = 'none'; }
-    function clearHistory() { if(confirm("彻底删除？")) { localStorage.clear(); location.reload(); } }
-
-    /* --- CANVAS REPORT GENERATOR (FIXED STYLE WITH SCHEDULE) --- */
-    function downloadReport(id) {
-        const history = JSON.parse(localStorage.getItem('titan_history') || "[]");
-        const entry = history.find(e => e.id === id);
-        if(!entry) return;
-
-        // Dynamic Height Calc
-        let contentHeight = 400; 
-        contentHeight += 60 + (entry.workouts.length > 0 ? entry.workouts.length * 25 : 25);
-        const notesLines = entry.notes.split('\n').filter(l=>l);
-        contentHeight += 60 + (notesLines.length > 0 ? notesLines.length * 25 : 25);
-        const fuelCount = entry.foodLog ? Math.min(entry.foodLog.length, 10) : 0;
-        contentHeight += 60 + (fuelCount > 0 ? fuelCount * 25 : 25);
-
-        const canvas = document.createElement('canvas');
-        const width = 600;
-        const height = Math.max(800, contentHeight + 50);
-        canvas.width = width; canvas.height = height;
-        const ctx = canvas.getContext('2d');
-
-        // Background & Border
-        ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0,0,width,height);
-        ctx.strokeStyle = '#00ff41'; ctx.lineWidth = 4; ctx.strokeRect(20,20,width-40,height-40);
-
-        // Header
-        ctx.fillStyle = '#00ff41'; ctx.font = 'bold 30px Courier New'; ctx.textAlign = 'center';
-        ctx.fillText('TITAN PROTOCOL', width/2, 80);
-        ctx.fillStyle = '#e0e0e0'; ctx.font = '20px Courier New';
-        let dateStr = entry.date.replace(/[\/\-]/g, '/'); // standardise
-        ctx.fillText('MISSION REPORT // ' + dateStr, width/2, 110);
-
-        // Divider
-        ctx.strokeStyle = '#333'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(40,140); ctx.lineTo(width-40,140); ctx.stroke();
-
-        // Stats
-        const drawBar = (lbl, val, max, y) => {
-            const barW = 300; const pct = Math.min(val/max, 1);
-            ctx.fillStyle = '#888'; ctx.font = '16px Courier New'; ctx.textAlign = 'left'; ctx.fillText(lbl, 60, y);
-            ctx.fillStyle = '#222'; ctx.fillRect(200, y-14, barW, 16);
-            ctx.fillStyle = '#ff3333'; // Default red (like image)
-            if(lbl === 'CALORIES' && val <= 2000 && val > 1500) ctx.fillStyle = '#00ff41';
-            if(lbl !== 'CALORIES' && pct >= 0.8) ctx.fillStyle = '#00ff41';
-            ctx.fillRect(200, y-14, barW*pct, 16);
-            ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.fillText(val + (lbl.includes('CAL')?'':'/'+max), width-60, y);
-        };
-        drawBar('CALORIES', entry.calories, 2000, 190);
-        drawBar('WORKOUTS', entry.workouts.length, 4, 230);
+        window.showFamilyCardDetail = function(key) {
+            let data = habitDataCache.A && habitDataCache.A.family ? habitDataCache.A.family.familyCard[key] : null;
+            if (!data && isCompareMode && habitDataCache.B && habitDataCache.B.family) {
+                data = habitDataCache.B.family.familyCard[key];
+            }
+            if(data) openDetailModal(key + " 的亲情卡/代付记录", data.items, data.amount);
+        }
         
-        // SCHEDULE (Fixed)
-        const sDone = entry.scheduleDone !== undefined ? entry.scheduleDone : 0;
-        const sTotal = entry.scheduleTotal !== undefined ? entry.scheduleTotal : 11;
-        drawBar('SCHEDULE', sDone, sTotal, 270);
-
-        ctx.beginPath(); ctx.moveTo(40, 310); ctx.lineTo(width-40, 310); ctx.stroke();
-
-        let y = 350;
-        // Protocols
-        ctx.fillStyle = '#00ff41'; ctx.textAlign = 'left'; ctx.font = 'bold 18px Courier New'; ctx.fillText('EXECUTED PROTOCOLS:', 60, y); y+=30;
-        ctx.fillStyle = '#fff'; ctx.font = '14px Courier New';
-        if(entry.workouts.length > 0) entry.workouts.forEach(w => { ctx.fillText(`[x] ${w}`, 60, y); y+=25; });
-        else { ctx.fillStyle='#666'; ctx.fillText('> None', 60, y); y+=25; }
-        y+=15;
-
-        // Notes
-        ctx.fillStyle = '#00ff41'; ctx.font = 'bold 18px Courier New'; ctx.fillText('FIELD NOTES:', 60, y); y+=30;
-        ctx.font = '14px Courier New';
-        if(notesLines.length > 0) {
-            notesLines.forEach(l => {
-                ctx.fillStyle = '#888'; 
-                // Parsing "[09:30] Text"
-                const match = l.match(/^\[(.*?)\] (.*)/);
-                if(match) {
-                    ctx.fillText(`[${match[1]}]`, 60, y);
-                    ctx.fillStyle = '#e0e0e0'; ctx.fillText(match[2], 130, y);
+        window.showNeutralDetail = function(key) {
+            let data = habitDataCache.A && habitDataCache.A.neutral ? habitDataCache.A.neutral.breakdown[key] : null;
+            if (!data && isCompareMode && habitDataCache.B && habitDataCache.B.neutral) {
+                data = habitDataCache.B.neutral.breakdown[key];
+            }
+            if(data) openDetailModal(key, data.items, data.amount);
+        }
+        
+        window.showIncomeDetail = function(key) {
+            let data = habitDataCache.A && habitDataCache.A.income ? habitDataCache.A.income.sources[key] : null;
+            if (!data && isCompareMode && habitDataCache.B && habitDataCache.B.income) {
+                data = habitDataCache.B.income.sources[key];
+            }
+            if(data) openDetailModal(key + " 的转账记录", data.items, data.amount);
+        }
+        
+        window.showOverviewDetail = function(type) {
+            let title = "", items = [], total = 0;
+            const cache = overviewCache; 
+            
+            if (type === 'income') { 
+                title = isCompareMode ? `时段 A 总收入` : "总收入明细"; 
+                items = cache.income; 
+            } else if (type === 'expense') { 
+                title = isCompareMode ? `时段 A 总支出` : "总支出明细"; 
+                items = cache.expense; 
+            } else if (type === 'balance') { 
+                title = isCompareMode ? `时段 A 净结余` : "净结余明细"; 
+                items = cache.balance; 
+            } else if (type === 'neutral') { 
+                title = isCompareMode ? `时段 A 中性` : "中性交易明细"; 
+                items = cache.neutral; 
+            }
+            
+            if (items) {
+                if (type === 'balance') {
+                    total = items.reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0);
                 } else {
-                    ctx.fillStyle = '#e0e0e0'; ctx.fillText(l, 60, y);
+                    total = items.reduce((sum, t) => sum + t.amount, 0);
                 }
-                y+=25;
+                openDetailModal(title, items, total);
+            }
+        }
+
+        window.handleFileSelect = function(input) {
+            const label = document.getElementById('fileLabel');
+            if (input.files.length > 0) { label.innerText = `已选择 ${input.files.length} 个文件`; label.classList.add('text-emerald-600'); }
+            else { label.innerText = '点击选择或拖拽文件到这里'; label.classList.remove('text-emerald-600'); }
+        }
+
+        window.switchTab = function(tabName) {
+            clearSelection(); 
+            ['family', 'personal', 'income', 'neutral'].forEach(t => {
+                const content = document.getElementById(`content-${t}`);
+                const tab = document.getElementById(`tab-${t}`);
+                if (content) content.classList.add('hidden');
+                if (tab) {
+                    tab.classList.remove('tab-active');
+                    tab.classList.add('tab-inactive');
+                }
             });
-        } else { ctx.fillStyle='#666'; ctx.fillText('> None', 60, y); y+=25; }
-        y+=15;
+            const activeContent = document.getElementById(`content-${tabName}`);
+            const activeTab = document.getElementById(`tab-${tabName}`);
+            if (activeContent) activeContent.classList.remove('hidden');
+            if (activeTab) {
+                activeTab.classList.add('tab-active');
+                activeTab.classList.remove('tab-inactive');
+            }
+        }
 
-        // Fuel
-        ctx.fillStyle = '#00ff41'; ctx.font = 'bold 18px Courier New'; ctx.fillText('FUEL INTAKE (LATEST):', 60, y); y+=30;
-        ctx.fillStyle = '#ccc'; ctx.font = '12px Courier New';
-        if(entry.foodLog && entry.foodLog.length > 0) {
-            entry.foodLog.slice(-10).reverse().forEach(f => {
-                const desc = typeof f === 'string' ? f : `${f.desc} (${f.kcal})`;
-                ctx.fillText('> ' + desc, 60, y); y+=20;
+        window.closeModal = function() {
+            document.getElementById('detailModal').classList.add('hidden');
+            clearSelection();
+            updateStats(); 
+        }
+        
+        window.closeRulesModal = function() { document.getElementById('rulesModal').classList.add('hidden'); }
+        window.showRulesModal = function() { renderRulesEditor(); document.getElementById('rulesModal').classList.remove('hidden'); }
+        window.clearData = function() { if(confirm('确定要清空所有数据吗？')) { localStorage.removeItem(CONFIG.storageKey); globalTransactions = []; dateOptions = { years: [], months: [], quarters: [] }; updateStats(); document.getElementById('fileInput').value = ''; document.getElementById('fileLabel').innerText = '点击选择或拖拽文件到这里'; } }
+        
+        window.processFiles = async function() {
+            const input = document.getElementById('fileInput');
+            if (input.files.length === 0) return alert('请先选择文件');
+            const newRecords = [];
+            for (const file of input.files) {
+                try {
+                    let text = await readFile(file, 'UTF-8');
+                    let records = [];
+                    if (text.includes('分类(大类)') && text.includes('交易时间')) {
+                        records = parseExportedCSV(text);
+                    } else if (text.includes('微信支付账单明细')) {
+                        records = parseWeChat(text);
+                    } else if (text.includes('支付宝') || text.includes('alipay') || text.includes('电子客户回单')) { 
+                        if (text.includes('')) text = await readFile(file, 'GBK'); 
+                        records = parseAlipay(text); 
+                    } else { 
+                        text = await readFile(file, 'GBK'); 
+                        records = parseAlipay(text); 
+                    }
+                    if (records.length > 0) newRecords.push(...records);
+                } catch (e) { console.error(e); }
+            }
+            if (newRecords.length > 0) { mergeTransactions(newRecords); alert(`导入成功！共 ${newRecords.length} 条记录。`); } else alert('未找到有效记录');
+        }
+
+        function generateFingerprint(t) { return `${t.date}_${t.amount}_${t.type}_${t.peer}`; }
+        window.checkForDuplicates = function() {
+            if (globalTransactions.length === 0) return alert('当前没有数据，无需去重。');
+            const map = new Map();
+            globalTransactions.forEach(t => { const fp = generateFingerprint(t); if (!map.has(fp)) map.set(fp, []); map.get(fp).push(t); });
+            const duplicates = [];
+            map.forEach((list, fp) => { if (list.length > 1) duplicates.push({ fingerprint: fp, items: list }); });
+            if (duplicates.length === 0) { alert('恭喜，未发现重复数据！(基于 时间+金额+对象+类型 判断)'); } else { renderDedupModal(duplicates); }
+        }
+        function renderDedupModal(duplicates) {
+            const container = document.getElementById('dedupList');
+            container.innerHTML = duplicates.map((group, idx) => {
+                const first = group.items[0];
+                return `<div class="bg-white rounded-lg shadow-sm border border-orange-100 overflow-hidden"><div class="bg-orange-50 px-4 py-2 border-b border-orange-100 flex justify-between items-center"><div class="text-sm font-bold text-orange-800">疑似重复组 #${idx + 1} <span class="ml-2 text-xs font-normal text-orange-600">(${first.date.split(' ')[0]} · ¥${formatMoney(first.amount, 2)})</span></div><span class="text-xs text-orange-600 bg-white px-2 py-0.5 rounded border border-orange-200">共 ${group.items.length} 条</span></div><div class="divide-y divide-gray-100">${group.items.map(t => { const sourceIcon = t.source === 'wechat' ? '<i class="fa-brands fa-weixin text-green-500"></i>' : (t.source === 'alipay' ? '<i class="fa-brands fa-alipay text-blue-500"></i>' : '<i class="fa-solid fa-file-csv text-gray-400"></i>'); return `<label class="flex items-start p-4 hover:bg-orange-50 cursor-pointer transition border-b border-gray-100 last:border-0 relative"><div class="flex items-center h-full mr-4 pt-1"><input type="checkbox" name="dedup_check" value="${t.id}" class="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500 transition" onchange="updateDedupCount()"></div><div class="flex-1 space-y-2"><div class="flex justify-between items-start"><div class="flex items-center gap-2">${sourceIcon} <span class="font-mono text-gray-600 font-medium">${t.date}</span> <span class="text-xs text-gray-300 font-mono">ID: ${t.id}</span></div><div class="font-bold text-base ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}">${t.type === 'income' ? '+' : ''}¥${formatMoney(t.amount, 2)}</div></div><div class="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-2 rounded-lg border border-gray-100"><div><span class="text-xs text-gray-400 block">交易对象</span><div class="text-gray-800 font-medium truncate" title="${t.peer}">${t.peer}</div></div><div><span class="text-xs text-gray-400 block">商品说明</span><div class="text-gray-800 truncate" title="${t.item}">${t.item}</div></div><div><span class="text-xs text-gray-400 block">支付方式</span><div class="text-gray-600 truncate">${t.account || '-'}</div></div><div><span class="text-xs text-gray-400 block">当前分类</span><div class="text-gray-600 truncate"><span class="bg-white border border-gray-200 px-1 rounded text-xs">${t.smartCategory?.subCategory || '未分类'}</span></div></div>${t.remark ? `<div class="col-span-2"><span class="text-xs text-gray-400 block">备注</span><div class="text-gray-500 text-xs italic">${t.remark}</div></div>` : ''}</div></div></label>`; }).join('')}</div></div>`;
+            }).join('');
+            document.getElementById('dedupSelectedCount').innerText = '0';
+            document.getElementById('dedupModal').classList.remove('hidden');
+        }
+        window.updateDedupCount = function() { document.getElementById('dedupSelectedCount').innerText = document.querySelectorAll('input[name="dedup_check"]:checked').length; }
+        window.closeDedupModal = function() { document.getElementById('dedupModal').classList.add('hidden'); }
+        window.executeDeduplication = function() {
+            const checkedBoxes = document.querySelectorAll('input[name="dedup_check"]:checked');
+            if (checkedBoxes.length === 0) return alert('请先勾选需要删除的重复项');
+            if(!confirm(`确定要永久删除选中的 ${checkedBoxes.length} 条记录吗？`)) return;
+            const idsToDelete = new Set(Array.from(checkedBoxes).map(cb => cb.value));
+            globalTransactions = globalTransactions.filter(t => !idsToDelete.has(t.id));
+            saveData(); updateStats(); closeDedupModal(); alert('去重完成！');
+        }
+
+        window.showExportModal = function() { document.getElementById('exportModal').classList.remove('hidden'); }
+        window.closeExportModal = function() { document.getElementById('exportModal').classList.add('hidden'); }
+        window.performExport = function(type) {
+            if (globalTransactions.length === 0) return alert('暂无数据可导出');
+            let dataToExport = type === 'current' ? filterTransactions(globalTransactions, filterA.type, filterA.value) : globalTransactions;
+            if (dataToExport.length === 0) return alert('当前范围内无数据');
+            const csvData = dataToExport.map(t => ({ '交易时间': t.date, '来源': t.source, '交易对象': t.peer, '商品': t.item, '交易类型': t.type, '金额': t.amount, '支付方式': t.account, '状态': t.status || '', '分类(大类)': t.smartCategory?.category || '', '分类(子类)': t.smartCategory?.subCategory || '', '备注': t.remark }));
+            const csv = Papa.unparse(csvData);
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `财务流水导出_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            closeExportModal();
+        }
+
+        window.generateReportImage = async function() {
+            if (!habitDataCache.A) return alert('暂无数据，无法生成报表');
+            const data = habitDataCache.A; 
+            document.getElementById('report-date').innerText = `统计周期: ${filterA.value} (${filterA.type})`;
+            const stats = document.getElementById('statIncome').innerText; 
+            document.getElementById('rep-income').innerText = document.getElementById('statIncome').innerText.split('\n')[0];
+            document.getElementById('rep-expense').innerText = document.getElementById('statExpense').innerText.split('\n')[0];
+            document.getElementById('rep-balance').innerText = document.getElementById('statBalance').innerText.split('\n')[0];
+            document.getElementById('rep-neutral').innerText = document.getElementById('statNeutral').innerText.split('\n')[0];
+            if (reportChartInstances['family']) reportChartInstances['family'].destroy();
+            if (reportChartInstances['personal']) reportChartInstances['personal'].destroy();
+            reportChartInstances['family'] = renderSimpleChart('rep-chart-family', data.family.breakdown);
+            reportChartInstances['personal'] = renderSimpleChart('rep-chart-personal', data.personal.breakdown);
+            document.getElementById('rep-list-family').innerHTML = Object.entries(data.family.breakdown).sort((a,b) => b[1].amount - a[1].amount).map(([k,v]) => `<div class="flex justify-between"><span>${k}</span><span class="font-bold">¥${formatMoney(v.amount, 2)}</span></div>`).join('');
+            document.getElementById('rep-list-personal').innerHTML = Object.entries(data.personal.breakdown).sort((a,b) => b[1].amount - a[1].amount).map(([k,v]) => `<div class="flex justify-between"><span>${k}</span><span class="font-bold">¥${formatMoney(v.amount, 2)}</span></div>`).join('');
+            document.getElementById('rep-list-income').innerHTML = Object.entries(data.income.sources).sort((a,b) => b[1].amount - a[1].amount).map(([k,v]) => `<tr><td class="p-2">${k}</td><td class="p-2 text-right font-bold text-emerald-600">+¥${formatMoney(v.amount, 2)}</td></tr>`).join('');
+            setTimeout(async () => {
+                const element = document.getElementById('report-snapshot-area');
+                try { const canvas = await html2canvas(element, { scale: 2 }); const link = document.createElement('a'); link.download = `财务分析报表_${filterA.value}.png`; link.href = canvas.toDataURL(); link.click(); } catch(e) { console.error(e); alert("报表生成失败"); }
+            }, 500);
+        }
+
+        function renderSimpleChart(id, data) {
+            const ctx = document.getElementById(id);
+            const keys = Object.keys(data);
+            const vals = Object.values(data).map(x => x.amount);
+            return new Chart(ctx, { type: 'bar', data: { labels: keys, datasets: [{ label: '金额', data: vals, backgroundColor: '#2FA873', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } } } });
+        }
+        
+        function safeQuote(str) { return str.replace(/'/g, "\\'"); }
+
+        document.addEventListener('DOMContentLoaded', () => { initRules(); loadData(); });
+
+        function initRules() {
+            const stored = localStorage.getItem(CONFIG.rulesKey);
+            if (stored) { try { activeRules = JSON.parse(stored); } catch(e) { activeRules = JSON.parse(JSON.stringify(DEFAULT_RULES)); } } 
+            else { activeRules = JSON.parse(JSON.stringify(DEFAULT_RULES)); }
+        }
+        window.saveRules = function() { localStorage.setItem(CONFIG.rulesKey, JSON.stringify(activeRules)); updateStats(); renderRulesEditor(); }
+        window.resetRulesToDefault = function() { if(confirm("确定要恢复默认分类规则吗？")) { activeRules = JSON.parse(JSON.stringify(DEFAULT_RULES)); saveRules(); } }
+
+        window.exportRules = function() {
+            const dataStr = JSON.stringify(activeRules, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `分类规则备份_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        window.importRules = function(input) {
+            if (input.files.length === 0) return;
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        activeRules = imported;
+                        saveRules();
+                        alert("规则导入成功！");
+                    } else {
+                        alert("规则文件格式不正确，应为规则数组。");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("解析规则文件失败，请确保是有效的 JSON 文件。");
+                }
+                input.value = ''; 
+            };
+            reader.readAsText(file);
+        };
+
+        function loadData() {
+            const raw = localStorage.getItem(CONFIG.storageKey);
+            if (raw) { try { globalTransactions = JSON.parse(raw); analyzeAvailableDates(); } catch(e) { globalTransactions = []; } }
+        }
+        function saveData() { localStorage.setItem(CONFIG.storageKey, JSON.stringify(globalTransactions)); analyzeAvailableDates(); }
+        
+        function readFile(file, encoding) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = e => resolve(e.target.result); reader.onerror = reject; reader.readAsText(file, encoding); }); }
+        
+        function parseExportedCSV(csvText) {
+             const results = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+             return results.data.map(row => ({ id: `imp_${Math.random().toString(36).substr(2,9)}`, source: row['来源'] || 'Import', date: row['交易时间'], type: row['交易类型'], amount: parseFloat(row['金额']), item: row['商品'] || '/', peer: row['交易对象'] || '/', account: row['支付方式'], status: row['状态'] || '', remark: row['备注'] || '' }));
+        }
+        
+        function parseWeChat(csvText) {
+            const lines = csvText.split(/\r\n|\n/);
+            const headerIndex = lines.findIndex(l => l.includes('交易时间') && l.includes('金额'));
+            if (headerIndex === -1) return [];
+            const dataContent = lines.slice(headerIndex).join('\n');
+            const parsed = Papa.parse(dataContent, { header: true, skipEmptyLines: true }).data;
+            return parsed.map(row => {
+                const type = row['收/支']; 
+                const status = row['当前状态'];
+                const amount = parseFloat((row['金额(元)'] || '0').replace('¥', '').trim());
+                if (!row['交易时间'] || !amount) return null;
+                let flowType = 'neutral';
+                if (type === '支出') flowType = 'expense'; else if (type === '收入') flowType = 'income';
+                return { id: `wx_${row['交易单号']}`, source: 'wechat', date: row['交易时间'], type: flowType, amount: amount, item: row['商品'] || '/', peer: row['交易对方'] || '/', account: row['支付方式'], remark: row['备注'] || '', originalType: type, status: status };
+            }).filter(i => i);
+        }
+        
+        function parseAlipay(csvText) {
+            const lines = csvText.split(/\r\n|\n/);
+            let headerIndex = -1;
+            for(let i=0; i<lines.length; i++) { if (lines[i].replace(/\s/g, '').includes('交易时间') && lines[i].includes('金额')) { headerIndex = i; break; } }
+            if (headerIndex === -1) return [];
+            const rawBody = lines.slice(headerIndex).join('\n');
+            const parsed = Papa.parse(rawBody, { header: true, skipEmptyLines: true, transformHeader: h => h.trim() }).data;
+            return parsed.map(row => {
+                const direction = row['收/支']?.trim();
+                const status = row['交易状态']?.trim();
+                if (row['交易状态']?.trim() === '交易关闭' || row['交易状态']?.trim() === '失败') return null;
+                if (direction === '不计收支' && !row['商品说明']?.includes('还款')) return null;
+                let flowType = 'neutral';
+                if (direction === '支出') flowType = 'expense'; else if (direction === '收入') flowType = 'income';
+                let date = row['交易时间']?.trim();
+                try { const d = new Date(date.replace(/-/g, '/')); const pad = n => n < 10 ? '0'+n : n; date = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; } catch(e) {}
+                return { id: `ali_${row['交易订单号']}`, source: 'alipay', date: date, type: flowType, amount: parseFloat((row['金额'] || '0')), item: row['商品说明']?.trim() || '/', peer: row['交易对方']?.trim() || '/', account: row['收/付款方式']?.trim(), remark: row['备注']?.trim() || '', originalType: direction, status: status };
+            }).filter(i => i);
+        }
+        
+        function categorizeTransaction(t) {
+            const searchText = (t.item + ' ' + t.peer + ' ' + t.remark + ' ' + (t.originalType || '')).toLowerCase();
+            if (t.type === 'income') {
+                for (const rule of activeRules) {
+                    if (rule.group === 'income') {
+                        const matchedKeyword = rule.keywords.find(k => searchText.includes(k.toLowerCase()));
+                        if (matchedKeyword) return { category: 'income', subCategory: rule.subCategory, match: matchedKeyword };
+                    }
+                }
+                return { category: 'income', subCategory: '未分类收入', match: '交易类型:收入' };
+            }
+            for (const rule of activeRules) {
+                if (rule.group !== 'income') {
+                    const matchedKeyword = rule.keywords.find(k => searchText.includes(k.toLowerCase()));
+                    if (matchedKeyword) return { category: rule.group, subCategory: rule.subCategory, match: matchedKeyword };
+                }
+            }
+            return { category: 'other', subCategory: '未分类支出', match: '无匹配' };
+        }
+        
+        function mergeTransactions(newItems) {
+            const map = new Map();
+            globalTransactions.forEach(item => map.set(item.id, item));
+            newItems.forEach(item => map.set(item.id, item));
+            globalTransactions = Array.from(map.values()).sort((a, b) => new Date(b.date.replace(/-/g, '/')) - new Date(a.date.replace(/-/g, '/')));
+            saveData();
+        }
+        
+        function openDetailModal(category, items, totalAmount) {
+            currentModalList = items || []; 
+            document.getElementById('modalTitle').innerText = category;
+            const count = items ? items.length : 0;
+            const displayAmount = (totalAmount || 0).toLocaleString('zh-CN', {style: 'currency', currency: 'CNY'});
+            document.getElementById('modalSubtitle').innerText = `共 ${count} 笔交易，合计 ${displayAmount}`;
+            const tbody = document.getElementById('modalBody');
+            
+            const modalSelectAllBox = document.getElementById('selectAllModalBox');
+            if (modalSelectAllBox) modalSelectAllBox.checked = false;
+
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-gray-400">无记录</td></tr>';
+            } else {
+                tbody.innerHTML = items.map(t => {
+                    const icon = t.source === 'wechat' ? '<i class="fa-brands fa-weixin text-green-500 mr-1"></i>' : '<i class="fa-brands fa-alipay text-blue-500 mr-1"></i>';
+                    let colorClass = 'text-gray-800';
+                    let sign = '';
+                    if (t.type === 'income') { colorClass = 'text-green-600'; sign = '+'; }
+                    else if (t.type === 'expense' && t.smartCategory.category !== 'neutral') { colorClass = 'text-red-600'; sign = '-'; }
+                    else { colorClass = 'text-gray-500'; }
+                    
+                    const isChecked = selectedTxIds.has(t.id) ? 'checked' : '';
+                    const remarkBadge = t.remark ? `<div class="mt-1"><span class="bg-green-50 text-green-600 text-[10px] px-1.5 py-0.5 rounded border border-green-100"><i class="fa-regular fa-comment-dots mr-1"></i>${t.remark}</span></div>` : '';
+
+                    return `<tr class="hover:bg-blue-50/30 group" id="modal-row-${t.id}">
+                        <td class="px-4 py-3 text-center">
+                            <input type="checkbox" value="${t.id}" class="tx-checkbox rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer" ${isChecked} onchange="updateSelection(this)">
+                        </td>
+                        <td class="px-6 py-3 text-gray-500 whitespace-nowrap text-xs">${t.date}</td>
+                        <td class="px-6 py-3 text-xs">${icon} <span class="text-gray-400">${t.source}</span></td>
+                        <td class="px-6 py-3">
+                            <div class="font-medium text-gray-900 truncate max-w-[200px]">${t.peer === '/' ? t.item : t.peer}</div>
+                            <div class="text-xs text-gray-400 truncate max-w-[200px]">${t.item}</div>
+                            ${remarkBadge}
+                        </td>
+                        <td class="px-6 py-3 text-right font-bold ${colorClass}">${sign}¥${formatMoney(t.amount, 2)}</td>
+                        <td class="px-6 py-3 text-center">
+                            <div class="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="openEditModal('${t.id}')" class="text-gray-400 hover:text-emerald-600 transition" title="编辑备注">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="deleteTransactionModal('${t.id}')" class="text-gray-400 hover:text-red-500 transition" title="删除">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        window.addNewRule = function() {
+            const group = document.getElementById('newRuleGroup').value;
+            const name = document.getElementById('newRuleName').value.trim();
+            const keywordsStr = document.getElementById('newRuleKeywords').value.trim();
+            if (!name || !keywordsStr) return alert("请填写完整信息");
+            const keywords = keywordsStr.split(/[,，]/).map(k => k.trim()).filter(k => k);
+            activeRules.unshift({ id: Date.now(), group, subCategory: name, keywords });
+            document.getElementById('newRuleName').value = ''; document.getElementById('newRuleKeywords').value = '';
+            saveRules();
+        }
+        
+        window.deleteRule = function(id) { if(confirm("确定删除此规则吗？")) { activeRules = activeRules.filter(r => r.id !== id); saveRules(); } }
+        
+        window.updateRuleKeywords = function(id, inputElement) {
+            const rule = activeRules.find(r => r.id === id);
+            if (rule) { rule.keywords = inputElement.value.split(/[,，]/).map(k => k.trim()).filter(k => k); saveRules(); }
+        }
+        
+        function renderRulesEditor() {
+            const container = document.getElementById('rulesListContainer');
+            const groups = { 'family': '家庭开支', 'personal': '个人支出', 'income': '收入业务分类', 'neutral': '中性/还款' };
+            let html = '';
+            for (const [groupKey, groupName] of Object.entries(groups)) {
+                html += `<div class="mb-8"><h4 class="font-bold border-l-4 border-emerald-500 pl-3 mb-4 text-sm bg-gray-50 p-2 rounded-r" style="color: var(--primary-emerald)">${groupName}</h4><div class="space-y-3">`;
+                const groupRules = activeRules.filter(r => r.group === groupKey);
+                if (groupRules.length === 0) html += `<p class="text-xs text-gray-400 italic pl-4">暂无规则</p>`;
+                groupRules.forEach(rule => {
+                    html += `<div class="rule-item relative group bg-white border border-gray-200 rounded-lg p-3 hover:border-emerald-300 hover:shadow-sm transition">
+                            <div class="flex justify-between items-start mb-2"><span class="font-bold text-sm bg-emerald-50 px-2 py-0.5 rounded" style="color: var(--primary-emerald)">${rule.subCategory}</span><button onclick="deleteRule(${rule.id})" class="rule-actions text-gray-400 hover:text-red-500 transition px-2"><i class="fa-solid fa-trash-can"></i></button></div>
+                            <input type="text" class="w-full text-xs text-gray-600 border-b border-dashed border-gray-300 focus:border-emerald-500 focus:ring-0 outline-none py-1 bg-transparent" value="${rule.keywords.join(', ')}" onchange="updateRuleKeywords(${rule.id}, this)" title="点击修改关键词"/></div>`;
+                });
+                html += `</div></div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function analyzeAvailableDates() {
+            const periods = new Set();
+            const years = new Set();
+            const quarters = new Set();
+            
+            globalTransactions.forEach(t => {
+                if(!t.date) return;
+                const d = new Date(t.date.replace(/-/g, '/')); // 修复苹果 Safari 浏览器下的时间解析 NaN 问题
+                if(isNaN(d.getTime())) return;
+                const y = d.getFullYear();
+                const m = d.getMonth() + 1;
+                const q = Math.ceil(m / 3);
+                
+                years.add(`${y}`);
+                quarters.add(`${y}-Q${q}`);
+                periods.add(`${y}-${String(m).padStart(2, '0')}`);
             });
-        } else { ctx.fillText('> No fuel logged.', 60, y); }
 
-        // Footer
-        ctx.fillStyle = '#333'; ctx.font = '10px Courier New'; ctx.textAlign = 'center';
-        ctx.fillText('GENERATED BY TITAN PROTOCOL', width/2, height-15);
+            dateOptions.years = Array.from(years).sort().reverse();
+            dateOptions.quarters = Array.from(quarters).sort().reverse();
+            dateOptions.months = Array.from(periods).sort().reverse();
 
-        // DL
-        const shortDate = dateStr.replace(/^20/, ''); 
-        const link = document.createElement('a');
-        link.download = `计划报告 ${shortDate.replace(/\//g,'_')}.png`;
-        link.href = canvas.toDataURL(); link.click();
-    }
-</script>
+            // 智能锁定防回溯机制
+            function checkAndFallback(filterObj, typeSelectId) {
+                let isValid = false;
+                if (filterObj.type === 'all') isValid = true;
+                else if (filterObj.type === 'year') isValid = dateOptions.years.includes(filterObj.value);
+                else if (filterObj.type === 'quarter') isValid = dateOptions.quarters.includes(filterObj.value);
+                else if (filterObj.type === 'month') isValid = dateOptions.months.includes(filterObj.value);
 
+                // 仅当用户删光了当前选定时间段的所有数据时，才优雅降级回到默认月份，否则坚决锁定用户选择
+                if (!isValid && globalTransactions.length > 0) {
+                    filterObj.type = 'month';
+                    filterObj.value = dateOptions.months[0] || '';
+                    const selectEl = document.getElementById(typeSelectId);
+                    if(selectEl) selectEl.value = 'month';
+                }
+            }
+
+            // 初次加载时
+            if (!filterA.value) {
+                filterA.type = 'month';
+                filterA.value = dateOptions.months[0] || '';
+                document.getElementById('periodTypeA').value = 'month';
+            } else {
+                checkAndFallback(filterA, 'periodTypeA');
+                if (isCompareMode) checkAndFallback(filterB, 'periodTypeB');
+            }
+
+            window.updatePeriodOptions('A', false);
+            window.updatePeriodOptions('B', false); 
+        }
+
+        window.toggleCompareMode = function() {
+            isCompareMode = document.getElementById('compareToggle').checked;
+            const containerB = document.getElementById('periodBContainer');
+            if (isCompareMode) {
+                containerB.classList.remove('hidden');
+                if(!filterB.value && dateOptions.months.length > 1) {
+                     filterB.type = 'month';
+                     filterB.value = dateOptions.months[1] || dateOptions.months[0];
+                     document.getElementById('periodTypeB').value = 'month';
+                     window.updatePeriodOptions('B', false);
+                }
+            } else {
+                containerB.classList.add('hidden');
+            }
+            updateStats();
+        }
+
+        window.updatePeriodOptions = function(target, triggerUpdate = true) {
+            const typeSelectId = target === 'A' ? 'periodTypeA' : 'periodTypeB';
+            const valSelectId = target === 'A' ? 'periodValueA' : 'periodValueB';
+            const type = document.getElementById(typeSelectId).value;
+            const valueSelect = document.getElementById(valSelectId);
+            valueSelect.innerHTML = '';
+            
+            let currentFilterObj = target === 'A' ? filterA : filterB;
+            currentFilterObj.type = type;
+            let options = [];
+            
+            if (type === 'all') {
+                valueSelect.classList.add('hidden');
+                currentFilterObj.value = 'all';
+            } else {
+                valueSelect.classList.remove('hidden');
+                if (type === 'year') options = dateOptions.years;
+                else if (type === 'quarter') options = dateOptions.quarters;
+                else if (type === 'month') options = dateOptions.months;
+
+                options.forEach(opt => {
+                    const el = document.createElement('option');
+                    el.value = opt;
+                    el.innerText = opt;
+                    valueSelect.appendChild(el);
+                });
+                
+                if (options.includes(currentFilterObj.value)) {
+                    valueSelect.value = currentFilterObj.value;
+                } else {
+                    valueSelect.value = options[0] || '';
+                    currentFilterObj.value = options[0] || '';
+                }
+            }
+            
+            if(triggerUpdate) window.updateStats();
+        }
+
+        function getPreviousPeriod(type, value) {
+            if (type === 'all') return null;
+            if (!value || value === 'all') return null;
+            
+            let prevValue = '';
+            if (type === 'month') {
+                let [y, m] = value.split('-').map(Number);
+                m -= 1;
+                if (m === 0) { m = 12; y -= 1; }
+                prevValue = `${y}-${String(m).padStart(2, '0')}`;
+            } else if (type === 'quarter') {
+                let [y, qStr] = value.split('-');
+                let q = parseInt(qStr.replace('Q', ''));
+                q -= 1;
+                if (q === 0) { q = 4; y = parseInt(y) - 1; }
+                prevValue = `${y}-Q${q}`;
+            } else if (type === 'year') {
+                prevValue = `${parseInt(value) - 1}`;
+            }
+            return prevValue;
+        }
+
+        function filterTransactions(txs, type, value) {
+            if (type === 'all') return txs;
+            return txs.filter(t => {
+                if(!t.date) return false;
+                const d = new Date(t.date.replace(/-/g, '/'));
+                if(isNaN(d.getTime())) return false;
+                const y = d.getFullYear();
+                const m = d.getMonth() + 1;
+                const q = Math.ceil(m / 3);
+                
+                if (type === 'year') return `${y}` === value;
+                if (type === 'quarter') return `${y}-Q${q}` === value;
+                if (type === 'month') return `${y}-${String(m).padStart(2, '0')}` === value;
+                return false;
+            });
+        }
+
+        function calculateStats(txs) {
+            let s = { income: 0, expense: 0, neutral: 0, balance: 0 };
+            txs.forEach(t => {
+                if (t.type === 'income') s.income += t.amount;
+                else if (t.type === 'expense' && t.smartCategory.category !== 'neutral') s.expense += t.amount;
+                else s.neutral += t.amount;
+            });
+            s.balance = s.income - s.expense;
+            return s;
+        }
+
+        function processTransactionsForPeriod(txs) {
+            let habits = { family: { total: 0, breakdown: {}, familyCard: {} }, personal: { total: 0, breakdown: {} }, income: { total: 0, sources: {} }, neutral: { total: 0, breakdown: {} }, others: { total: 0, items: [] } };
+            let listIncome = [], listExpense = [], listNeutral = [], listBalance = [];
+
+            txs.forEach(t => {
+                const result = t.smartCategory;
+                
+                if (t.type === 'income') { listIncome.push(t); listBalance.push(t); }
+                else if (t.type === 'expense') {
+                    if (result.category === 'neutral') listNeutral.push(t);
+                    else { listExpense.push(t); listBalance.push(t); }
+                } else listNeutral.push(t);
+
+                if (t.type === 'income') {
+                    let sourceKey = result.subCategory === '未分类收入' ? (t.peer || '其他') : result.subCategory;
+                    if (!habits.income.sources[sourceKey]) habits.income.sources[sourceKey] = { amount: 0, count: 0, max: 0, items: [] };
+                    habits.income.sources[sourceKey].amount += t.amount;
+                    habits.income.sources[sourceKey].count++;
+                    habits.income.sources[sourceKey].items.push(t);
+                    if (t.amount > habits.income.sources[sourceKey].max) habits.income.sources[sourceKey].max = t.amount;
+                } else {
+                    if (result.category === 'neutral') addToHabit(habits.neutral, result.subCategory, t);
+                    else if (result.category === 'family') {
+                        addToHabit(habits.family, result.subCategory, t);
+                        if (result.subCategory.includes('亲情卡') || result.subCategory.includes('代付')) {
+                            let person = (t.peer.replace('亲友代付', '').match(/(.*?)\(/) || [null, t.peer.replace('亲友代付', '').trim()])[1];
+                            if (!person || person === '/') person = '未知对象';
+                            
+                            if (!habits.family.familyCard[person]) habits.family.familyCard[person] = { amount: 0, count: 0, items: [] };
+                            
+                            habits.family.familyCard[person].amount += t.amount;
+                            habits.family.familyCard[person].count++;
+                            habits.family.familyCard[person].items.push(t); 
+                        }
+                    } else if (result.category === 'personal') {
+                        addToHabit(habits.personal, result.subCategory, t);
+                    } else if (result.category === 'other') {
+                        if (t.type === 'neutral') addToHabit(habits.neutral, '未分类中性交易', t);
+                        else { habits.others.total += t.amount; habits.others.items.push(t); }
+                    }
+                }
+            });
+            return { habits, overview: { income: listIncome, expense: listExpense, neutral: listNeutral, balance: listBalance } };
+        }
+
+        function addToHabit(categoryObj, subKey, t) {
+            categoryObj.total += t.amount;
+            if (!categoryObj.breakdown[subKey]) categoryObj.breakdown[subKey] = { amount: 0, count: 0, items: [] };
+            categoryObj.breakdown[subKey].amount += t.amount;
+            categoryObj.breakdown[subKey].count += 1;
+            categoryObj.breakdown[subKey].items.push(t);
+        }
+
+        window.updateStats = function() {
+            globalTransactions.forEach(t => t.smartCategory = categorizeTransaction(t));
+
+            // 安全读取 DOM 状态，修复 "全部" 选项导致 filterA.value 丢失变为空字符串的 Bug
+            filterA.type = document.getElementById('periodTypeA').value;
+            if (filterA.type === 'all') {
+                filterA.value = 'all';
+            } else {
+                filterA.value = document.getElementById('periodValueA').value;
+            }
+            
+            if(isCompareMode) {
+                filterB.type = document.getElementById('periodTypeB').value;
+                if (filterB.type === 'all') {
+                    filterB.value = 'all';
+                } else {
+                    filterB.value = document.getElementById('periodValueB').value;
+                }
+            }
+
+            const txsA = filterTransactions(globalTransactions, filterA.type, filterA.value);
+            currentPeriodTransactions = txsA;
+
+            const statsA = calculateStats(txsA);
+            const dataA = processTransactionsForPeriod(txsA);
+            
+            let txsB = [], statsB = null, dataB = null;
+            if (isCompareMode) {
+                txsB = filterTransactions(globalTransactions, filterB.type, filterB.value);
+                statsB = calculateStats(txsB);
+                dataB = processTransactionsForPeriod(txsB);
+            } else {
+                const prevVal = getPreviousPeriod(filterA.type, filterA.value);
+                if (prevVal) {
+                    txsB = filterTransactions(globalTransactions, filterA.type, prevVal);
+                    statsB = calculateStats(txsB);
+                }
+            }
+
+            habitDataCache.A = dataA.habits;
+            overviewCache = dataA.overview;
+            if(isCompareMode) {
+                habitDataCache.B = dataB.habits;
+                overviewCacheB = dataB.overview;
+            } else {
+                habitDataCache.B = null;
+            }
+
+            renderOverview(statsA, statsB, isCompareMode);
+            renderChartsAndLists(dataA.habits, isCompareMode ? dataB.habits : null);
+            
+            applySearchAndRender();
+            
+            const othersCount = dataA.habits.others.items.length;
+            const reminder = document.getElementById('uncategorizedReminder');
+            if (reminder) {
+                if (othersCount > 0) {
+                    reminder.innerHTML = `<span class="bg-red-50 text-red-600 px-3 py-2 rounded-lg border border-red-100 inline-flex items-center w-full sm:w-auto"><i class="fa-solid fa-circle-exclamation mr-2"></i>⚠️ 本期还有 <b class="mx-1">${othersCount}</b> 笔交易未分类，请在下方下拉菜单选择“仅看未分类”进行批量处理。</span>`;
+                } else {
+                    reminder.innerHTML = `<span class="bg-green-50 text-green-600 px-3 py-2 rounded-lg border border-green-100 inline-flex items-center w-full sm:w-auto"><i class="fa-solid fa-circle-check mr-2"></i>✅ 本期所有交易已全部分类。</span>`;
+                }
+            }
+        }
+
+        window.handleSearch = function() {
+            clearSelection(); 
+            applySearchAndRender();
+        }
+
+        function applySearchAndRender() {
+            const typeFilterEl = document.getElementById('searchTypeFilter');
+            const inputEl1 = document.getElementById('searchInput');
+            const inputEl2 = document.getElementById('searchInput2');
+            
+            if(!inputEl1) { 
+                currentPeriodTransactionsFiltered = currentPeriodTransactions;
+                renderTransactionList(currentPeriodTransactions);
+                return;
+            }
+            
+            const typeFilter = typeFilterEl ? typeFilterEl.value : 'all';
+            const term1 = inputEl1.value.toLowerCase().trim();
+            const term2 = inputEl2 ? inputEl2.value.toLowerCase().trim() : ''; 
+            
+            let filtered = currentPeriodTransactions;
+            
+            if (typeFilter !== 'all') {
+                if (typeFilter === 'uncategorized') {
+                    filtered = filtered.filter(t => t.smartCategory?.category === 'other');
+                } else {
+                    filtered = filtered.filter(t => t.type === typeFilter);
+                }
+            }
+            
+            if (term1) {
+                filtered = filtered.filter(t => {
+                    return (t.peer && t.peer.toLowerCase().includes(term1)) ||
+                           (t.item && t.item.toLowerCase().includes(term1)) ||
+                           (t.source && t.source.toLowerCase().includes(term1)) ||
+                           (t.account && t.account.toLowerCase().includes(term1)) ||
+                           (t.amount && t.amount.toString().includes(term1)) ||
+                           (t.remark && t.remark.toLowerCase().includes(term1)) ||
+                           (t.date && t.date.includes(term1)) ||
+                           (t.status && t.status.toLowerCase().includes(term1));
+                });
+            }
+
+            if (term2) {
+                filtered = filtered.filter(t => {
+                    return (t.peer && t.peer.toLowerCase().includes(term2)) ||
+                           (t.item && t.item.toLowerCase().includes(term2)) ||
+                           (t.source && t.source.toLowerCase().includes(term2)) ||
+                           (t.account && t.account.toLowerCase().includes(term2)) ||
+                           (t.amount && t.amount.toString().includes(term2)) ||
+                           (t.remark && t.remark.toLowerCase().includes(term2)) ||
+                           (t.date && t.date.includes(term2)) ||
+                           (t.status && t.status.toLowerCase().includes(term2));
+                });
+            }
+            
+            currentPeriodTransactionsFiltered = filtered; 
+
+            let inSum = 0, outSum = 0;
+            filtered.forEach(t => {
+                if (t.type === 'income') inSum += t.amount;
+                if (t.type === 'expense' && t.smartCategory?.category !== 'neutral') outSum += t.amount;
+            });
+
+            const statsPanel = document.getElementById('searchStatsPanel');
+            const searchCountSpan = document.getElementById('searchCount');
+            
+            if (term1 || term2 || typeFilter !== 'all') {
+                if(statsPanel) {
+                    statsPanel.classList.remove('hidden');
+                    document.getElementById('s-count').innerText = filtered.length;
+                    document.getElementById('s-income').innerText = '¥' + formatMoney(inSum, 2);
+                    document.getElementById('s-expense').innerText = '¥' + formatMoney(outSum, 2);
+                }
+                if(searchCountSpan) searchCountSpan.classList.add('hidden'); 
+            } else {
+                if(statsPanel) statsPanel.classList.add('hidden');
+                if(searchCountSpan) searchCountSpan.classList.remove('hidden');
+            }
+
+            renderTransactionList(filtered);
+        }
+
+        function renderOverview(curr, comp, isCompare) {
+            const fmt = n => `¥${formatMoney(n, 2)}`;
+            const renderCard = (idRoot, valA, valB) => {
+                const elAmount = document.getElementById(`stat${idRoot}`);
+                const elTrend = document.getElementById(`${idRoot.toLowerCase()}Trend`);
+                valA = Number(valA) || 0;
+                valB = Number(valB) || 0;
+                if (isCompare) {
+                    elAmount.innerHTML = `<div class="flex flex-col gap-1"><span class="text-2xl font-bold color-a">${fmt(valA)}</span><span class="text-sm font-medium color-b flex items-center gap-1"><span>vs</span> ${fmt(valB)}</span></div>`;
+                    const diff = valA - valB;
+                    let percent = '-';
+                    if (valB !== 0) { percent = ((diff / valB) * 100).toFixed(1) + '%'; } else if (valA !== 0) { percent = '∞'; }
+                    const color = diff >= 0 ? 'text-red-500' : 'text-green-500';
+                    elTrend.innerHTML = `<span class="${color} font-bold text-xs">${diff>=0?'+':''}${fmt(diff)} (${diff>=0?'+':''}${percent})</span>`;
+                } else {
+                    elAmount.innerText = fmt(valA);
+                    if (comp !== null && comp !== undefined) {
+                        const diff = valA - valB;
+                        let percent = '-';
+                        if (valB !== 0) { percent = Math.abs((diff / valB) * 100).toFixed(1) + '%'; } else if (valA !== 0) { percent = '∞'; } else { percent = '0%'; }
+                        const icon = diff >= 0 ? '<i class="fa-solid fa-arrow-trend-up"></i>' : '<i class="fa-solid fa-arrow-trend-down"></i>';
+                        const color = diff >= 0 ? 'trend-up' : 'trend-down';
+                        elTrend.innerHTML = `<span class="${color} text-xs flex items-center gap-1"><span class="text-gray-400 font-normal">环比:</span> ${icon} ${percent}</span>`;
+                    } else { elTrend.innerHTML = ''; }
+                }
+            };
+            const hasPrev = comp !== null;
+            renderCard('Income', curr.income, hasPrev ? comp.income : 0);
+            renderCard('Expense', curr.expense, hasPrev ? comp.expense : 0);
+            renderCard('Balance', curr.balance, hasPrev ? comp.balance : 0);
+            renderCard('Neutral', curr.neutral, hasPrev ? comp.neutral : 0);
+            document.getElementById('incomeCount').innerText = isCompare ? '时段A / 时段B' : '';
+            document.getElementById('expenseCount').innerText = isCompare ? '时段A / 时段B' : '';
+        }
+
+        function renderChartsAndLists(habitsA, habitsB) {
+            const hasB = !!habitsB;
+            renderDoubleBarChart('chartFamily', habitsA.family.breakdown, hasB ? habitsB.family.breakdown : null);
+            renderDoubleProgress('familyProgressList', habitsA.family.breakdown, hasB ? habitsB.family.breakdown : null, habitsA.family.total, hasB ? habitsB.family.total : 0);
+            renderFamilyCardTable(habitsA.family.familyCard, hasB ? habitsB.family.familyCard : null);
+            renderDoubleBarChart('chartPersonal', habitsA.personal.breakdown, hasB ? habitsB.personal.breakdown : null);
+            renderDetailedList('personalDetailList', habitsA.personal.breakdown, hasB ? habitsB.personal.breakdown : null, 'personal');
+            const flattenIncome = (src) => { let out = {}; Object.entries(src).forEach(([k,v]) => out[k] = { amount: v.amount, count: v.count }); return out; };
+            renderDoubleBarChart('chartIncome', flattenIncome(habitsA.income.sources), hasB ? flattenIncome(habitsB.income.sources) : null);
+            renderIncomeTable(habitsA.income.sources, hasB ? habitsB.income.sources : null);
+            renderDoubleBarChart('chartNeutral', habitsA.neutral.breakdown, hasB ? habitsB.neutral.breakdown : null);
+            renderDetailedList('neutralDetailList', habitsA.neutral.breakdown, hasB ? habitsB.neutral.breakdown : null, 'neutral');
+        }
+
+        function renderDoubleBarChart(canvasId, dataA, dataB) {
+            const ctx = document.getElementById(canvasId);
+            if (charts[canvasId]) charts[canvasId].destroy();
+            const keysA = Object.keys(dataA || {});
+            const keysB = dataB ? Object.keys(dataB) : [];
+            const allKeys = Array.from(new Set([...keysA, ...keysB]));
+            const valsA = allKeys.map(k => dataA[k] ? dataA[k].amount : 0);
+            const datasets = [{ label: isCompareMode ? '时段 A' : '金额', data: valsA, backgroundColor: 'rgba(47, 168, 115, 0.85)', borderRadius: 4 }];
+            if (dataB) {
+                const valsB = allKeys.map(k => dataB[k] ? dataB[k].amount : 0);
+                datasets.push({ label: '时段 B', data: valsB, backgroundColor: '#f59e0b', borderRadius: 4 });
+            }
+            charts[canvasId] = new Chart(ctx, { type: 'bar', data: { labels: allKeys.length ? allKeys : ['无数据'], datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { display: false } } } } });
+        }
+
+        function renderDoubleProgress(containerId, dataA, dataB, totalA, totalB) {
+            const container = document.getElementById(containerId);
+            const keysA = Object.keys(dataA || {});
+            const keysB = dataB ? Object.keys(dataB) : [];
+            const allKeys = Array.from(new Set([...keysA, ...keysB]));
+            if (allKeys.length === 0) { container.innerHTML = '<p class="text-sm text-gray-400">暂无数据</p>'; return; }
+            container.innerHTML = allKeys.map(k => {
+                const valA = dataA && dataA[k] ? dataA[k].amount : 0;
+                const pctA = totalA ? ((valA / totalA) * 100).toFixed(1) : 0;
+                let html = `<div onclick="showFamilyDetail('${safeQuote(k)}')" class="mb-3 cursor-pointer hover:bg-gray-50 p-2 rounded transition group"><div class="flex justify-between text-sm mb-1"><span class="text-gray-700 font-medium group-hover:text-emerald-600">${k}</span><span class="color-a font-bold">¥${formatMoney(valA, 0)} <span class="text-xs opacity-75">(${pctA}%)</span></span></div><div class="w-full bg-gray-100 rounded-full h-2 mb-1"><div class="bg-a h-2 rounded-full" style="width: ${pctA}%"></div></div>`;
+                if (dataB) {
+                    const valB = dataB && dataB[k] ? dataB[k].amount : 0;
+                    const pctB = totalB ? ((valB / totalB) * 100).toFixed(1) : 0;
+                    html += `<div class="flex justify-between text-xs text-gray-500 mb-0.5"><span>时段 B</span><span class="color-b font-medium">¥${formatMoney(valB, 0)} (${pctB}%)</span></div><div class="w-full bg-gray-100 rounded-full h-1.5"><div class="bg-b h-1.5 rounded-full" style="width: ${pctB}%"></div></div>`;
+                }
+                html += `</div>`;
+                return html;
+            }).join('');
+        }
+
+        function renderDetailedList(containerId, dataA, dataB, typeKey) {
+            const div = document.getElementById(containerId);
+            const keysA = Object.keys(dataA || {});
+            const keysB = dataB ? Object.keys(dataB) : [];
+            const allKeys = Array.from(new Set([...keysA, ...keysB])).sort((a,b) => {
+                const vA = dataA && dataA[a] ? dataA[a].amount : 0;
+                const vB = dataA && dataA[b] ? dataA[b].amount : 0;
+                return vB - vA;
+            });
+            if (allKeys.length === 0) { div.innerHTML = '<div class="text-center text-gray-400 py-4 text-sm">暂无数据</div>'; return; }
+            div.innerHTML = allKeys.map(k => {
+                const valA = dataA && dataA[k] ? dataA[k].amount : 0;
+                const countA = dataA && dataA[k] ? dataA[k].count : 0;
+                let bSection = '';
+                if (dataB) {
+                    const valB = dataB && dataB[k] ? dataB[k].amount : 0;
+                    const diff = valA - valB;
+                    const color = diff > 0 ? 'text-red-500' : 'text-green-500';
+                    bSection = `<div class="list-grid mt-2 pt-2 border-t border-gray-100 text-sm"><span class="text-xs text-gray-400">对比</span><span class="color-a font-bold">A: ¥${formatMoney(valA, 0)}</span><span class="color-b font-bold">B: ¥${formatMoney(valB, 0)}</span></div>`;
+                }
+                return `<div onclick="showPersonalDetail('${safeQuote(k)}', '${typeKey}')" class="clickable-row flex flex-col p-3 bg-gray-50 rounded-lg border border-transparent hover:border-emerald-200 transition-all group"><div class="flex justify-between items-center"><div class="flex flex-col"><span class="text-gray-700 font-medium group-hover:text-emerald-600 transition">${k}</span><span class="text-xs text-gray-400">${countA} 笔</span></div><div class="flex items-center gap-2"><span class="font-bold color-a">¥${formatMoney(valA, 2)}</span><i class="fa-solid fa-chevron-right text-gray-300 text-xs"></i></div></div>${bSection}</div>`;
+            }).join('');
+        }
+
+        function renderFamilyCardTable(dataA, dataB) {
+            const head = document.getElementById('familyCardHead');
+            const body = document.getElementById('familyCardList');
+            let headerHtml = `<tr><th class="pb-2 text-left text-gray-500">使用人</th><th class="pb-2 text-right color-a">金额 (A)</th>`;
+            if (dataB) headerHtml += `<th class="pb-2 text-right color-b">金额 (B)</th><th class="pb-2 text-right text-gray-500">差异</th>`;
+            else headerHtml += `<th class="pb-2 text-right text-gray-500">笔数</th>`;
+            headerHtml += `</tr>`;
+            head.innerHTML = headerHtml;
+            const keys = new Set([...Object.keys(dataA), ...(dataB ? Object.keys(dataB) : [])]);
+            body.innerHTML = Array.from(keys).map(k => {
+                const valA = dataA[k] ? dataA[k].amount : 0;
+                let extraCols = '';
+                if (dataB) {
+                    const valB = dataB[k] ? dataB[k].amount : 0;
+                    const diff = valA - valB;
+                    extraCols = `<td class="py-2 text-right color-b font-bold">¥${formatMoney(valB, 0)}</td><td class="py-2 text-right font-bold ${diff>0?'text-red-500':'text-green-500'}">${diff>0?'+':''}${formatMoney(diff, 0)}</td>`;
+                } else { extraCols = `<td class="py-2 text-right text-gray-500">${dataA[k].count}笔</td>`; }
+                return `<tr onclick="showFamilyCardDetail('${safeQuote(k)}')" class="hover:bg-gray-50 cursor-pointer"><td class="py-2 font-medium text-gray-700 hover:text-emerald-600 underline decoration-dotted underline-offset-4">${k}</td><td class="py-2 text-right color-a font-bold">¥${formatMoney(valA, 0)}</td>${extraCols}</tr>`;
+            }).join('');
+        }
+
+        function renderIncomeTable(dataA, dataB) {
+            const head = document.getElementById('incomeSourceHead');
+            const body = document.getElementById('incomeSourceList');
+            let headerHtml = `<tr><th class="px-4 py-3 text-left font-medium text-gray-600">业务/来源</th><th class="px-4 py-3 text-right font-medium color-a">金额 (A)</th>`;
+            if (dataB) headerHtml += `<th class="px-4 py-3 text-right font-medium color-b">金额 (B)</th><th class="px-4 py-3 text-right font-medium text-gray-600">差异</th></tr>`;
+            else headerHtml += `<th class="px-4 py-3 text-right font-medium text-gray-600">频次</th><th class="px-4 py-3 text-right font-medium text-gray-600">单笔最高</th></tr>`;
+            head.innerHTML = headerHtml;
+            const keys = new Set([...Object.keys(dataA), ...(dataB ? Object.keys(dataB) : [])]);
+            body.innerHTML = Array.from(keys).map(k => {
+                const valA = dataA[k] ? dataA[k].amount : 0;
+                let extraCols = '';
+                if (dataB) {
+                    const valB = dataB[k] ? dataB[k].amount : 0;
+                    const diff = valA - valB;
+                    extraCols = `<td class="px-4 py-3 text-right color-b font-bold">¥${formatMoney(valB, 0)}</td><td class="px-4 py-3 text-right ${diff>=0?'text-green-600':'text-red-400'}">${diff>0?'+':''}${formatMoney(diff, 0)}</td>`;
+                } else { extraCols = `<td class="px-4 py-3 text-right text-gray-500">${dataA[k].count}</td><td class="px-4 py-3 text-right text-gray-400 text-xs">Max: ¥${formatMoney(dataA[k].max, 0)}</td>`; }
+                return `<tr onclick="showIncomeDetail('${safeQuote(k)}')" class="clickable-row hover:bg-blue-50/30 transition cursor-pointer border-b border-gray-50"><td class="px-4 py-3 font-medium text-gray-800 flex items-center gap-2"><i class="fa-solid fa-briefcase text-emerald-200"></i> ${k}</td><td class="px-4 py-3 text-right font-bold color-a">+¥${formatMoney(valA, 2)}</td>${extraCols}</tr>`;
+            }).join('');
+        }
+
+        window.toggleSelectAll = function(checkbox, context) {
+            let listToSelect = [];
+            if (context === 'main') {
+                listToSelect = currentPeriodTransactionsFiltered;
+            } else if (context === 'modal') {
+                listToSelect = currentModalList;
+            }
+
+            if (checkbox.checked) {
+                listToSelect.forEach(t => selectedTxIds.add(t.id));
+            } else {
+                listToSelect.forEach(t => selectedTxIds.delete(t.id));
+            }
+            
+            updateBatchBtn();
+        }
+
+        window.updateSelection = function(checkbox) {
+            if(checkbox.checked) selectedTxIds.add(checkbox.value);
+            else selectedTxIds.delete(checkbox.value);
+            updateBatchBtn();
+        }
+
+        function updateBatchBtn() {
+            const containers = document.querySelectorAll('.batch-btn-group');
+            const countSpans = document.querySelectorAll('.batch-count-display');
+            const modalContainers = document.querySelectorAll('.batch-btn-group-modal');
+            const modalCountSpans = document.querySelectorAll('.batch-count-display-modal');
+            
+            if (selectedTxIds.size > 0) {
+                containers.forEach(c => c.classList.remove('hidden'));
+                countSpans.forEach(s => s.innerText = selectedTxIds.size);
+                modalContainers.forEach(c => c.classList.remove('hidden'));
+                modalCountSpans.forEach(s => s.innerText = selectedTxIds.size);
+            } else {
+                containers.forEach(c => c.classList.add('hidden'));
+                modalContainers.forEach(c => c.classList.add('hidden'));
+            }
+
+            document.querySelectorAll('.tx-checkbox').forEach(cb => {
+                cb.checked = selectedTxIds.has(cb.value);
+            });
+        }
+
+        window.deleteTransaction = function(id) {
+            if (selectedTxIds.size > 0) {
+                batchDelete();
+                return;
+            }
+            if(!confirm("确定要删除这条记录吗？")) return;
+            globalTransactions = globalTransactions.filter(t => t.id !== id);
+            selectedTxIds.delete(id);
+            
+            updateBatchBtn();
+            saveData();
+            updateStats();
+        }
+
+        window.deleteTransactionModal = function(id) {
+            if (selectedTxIds.size > 0) {
+                batchDelete();
+                document.getElementById('detailModal').classList.add('hidden');
+                return;
+            }
+            if(!confirm("确定要删除这条记录吗？")) return;
+            globalTransactions = globalTransactions.filter(t => t.id !== id);
+            selectedTxIds.delete(id);
+            updateBatchBtn();
+            saveData();
+            updateStats();
+            
+            const row = document.getElementById(`modal-row-${id}`);
+            if(row) row.style.display = 'none';
+        }
+
+        window.batchDelete = function() {
+            if(selectedTxIds.size === 0) return;
+            if(!confirm(`确定要永久删除选中的 ${selectedTxIds.size} 条记录吗？`)) return;
+            
+            const idsToDelete = Array.from(selectedTxIds);
+            globalTransactions = globalTransactions.filter(t => !selectedTxIds.has(t.id));
+            
+            idsToDelete.forEach(id => {
+                const row = document.getElementById(`modal-row-${id}`);
+                if (row) row.style.display = 'none';
+            });
+            
+            clearSelection();
+            saveData();
+            updateStats();
+        }
+
+        window.batchEdit = function() {
+            if (selectedTxIds.size === 0) return;
+            
+            document.getElementById('editTxId').value = 'BATCH_MODE';
+            document.getElementById('editTxInfoName').innerText = "批量修改备注";
+            document.getElementById('editTxInfoItem').innerText = `即将修改 ${selectedTxIds.size} 条选中的交易记录`;
+            document.getElementById('editTxRemark').value = '';
+            document.getElementById('editTxRemark').placeholder = "请输入统一的备注内容...";
+            
+            document.getElementById('editTxModal').classList.remove('hidden');
+            document.getElementById('editTxRemark').focus();
+        }
+
+        window.openEditModal = function(id) {
+            if (selectedTxIds.size > 0) {
+                batchEdit();
+                return;
+            }
+
+            const t = globalTransactions.find(tx => tx.id === id);
+            if(!t) return;
+            
+            document.getElementById('editTxId').value = id;
+            document.getElementById('editTxInfoName').innerText = t.peer === '/' ? t.item : t.peer;
+            document.getElementById('editTxInfoItem').innerText = `${t.date} · ¥${formatMoney(t.amount, 2)}`;
+            document.getElementById('editTxRemark').value = t.remark || '';
+            document.getElementById('editTxRemark').placeholder = "输入关键词...";
+            
+            document.getElementById('editTxModal').classList.remove('hidden');
+            document.getElementById('editTxRemark').focus();
+        }
+
+        window.saveTxEdit = function() {
+            const id = document.getElementById('editTxId').value;
+            const newRemark = document.getElementById('editTxRemark').value.trim();
+            
+            if (id === 'BATCH_MODE') {
+                let updatedCount = 0;
+                globalTransactions.forEach(tx => {
+                    if (selectedTxIds.has(tx.id)) {
+                        tx.remark = newRemark;
+                        tx.smartCategory = categorizeTransaction(tx);
+                        updatedCount++;
+
+                        const modalRow = document.getElementById(`modal-row-${tx.id}`);
+                        if(modalRow) {
+                            const remarkBadge = tx.remark ? `<div class="mt-1"><span class="bg-green-50 text-green-600 text-[10px] px-1.5 py-0.5 rounded border border-green-100"><i class="fa-regular fa-comment-dots mr-1"></i>${tx.remark}</span></div>` : '';
+                            modalRow.cells[3].innerHTML = `
+                                <div class="font-medium text-gray-900 truncate max-w-[200px]">${tx.peer === '/' ? tx.item : tx.peer}</div>
+                                <div class="text-xs text-gray-400 truncate max-w-[200px]">${tx.item}</div>
+                                ${remarkBadge}
+                            `;
+                        }
+                    }
+                });
+                
+                if (updatedCount > 0) {
+                    saveData();
+                    updateStats();
+                    clearSelection();
+                }
+                document.getElementById('editTxModal').classList.add('hidden');
+            } else {
+                const tIndex = globalTransactions.findIndex(tx => tx.id === id);
+                if(tIndex !== -1) {
+                    const t = globalTransactions[tIndex];
+                    t.remark = newRemark;
+                    t.smartCategory = categorizeTransaction(t);
+                    saveData();
+                    updateStats();
+                    document.getElementById('editTxModal').classList.add('hidden');
+                    
+                    const modalRow = document.getElementById(`modal-row-${id}`);
+                    if(modalRow) {
+                        const remarkBadge = t.remark ? `<div class="mt-1"><span class="bg-green-50 text-green-600 text-[10px] px-1.5 py-0.5 rounded border border-green-100"><i class="fa-regular fa-comment-dots mr-1"></i>${t.remark}</span></div>` : '';
+                        modalRow.cells[3].innerHTML = `
+                            <div class="font-medium text-gray-900 truncate max-w-[200px]">${t.peer === '/' ? t.item : t.peer}</div>
+                            <div class="text-xs text-gray-400 truncate max-w-[200px]">${t.item}</div>
+                            ${remarkBadge}
+                        `;
+                    }
+                }
+            }
+        }
+
+        function renderTransactionList(txs) {
+            const tbody = document.getElementById('transactionList');
+            const selectAll = document.getElementById('selectAllBox');
+            if(selectAll) selectAll.checked = false;
+
+            if (!txs || txs.length === 0) { tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-gray-400">暂无数据</td></tr>`; return; }
+            
+            const displayList = txs.slice(0, CONFIG.maxListItems);
+            
+            tbody.innerHTML = displayList.map(t => {
+                const isWx = t.source === 'wechat';
+                const icon = isWx ? '<i class="fa-brands fa-weixin text-green-500"></i>' : '<i class="fa-brands fa-alipay text-blue-500"></i>';
+                const color = t.type === 'income' ? 'text-green-600' : (t.smartCategory?.category === 'neutral' ? 'text-gray-400' : 'text-red-600');
+                const sign = t.type === 'income' ? '+' : '';
+                const catDisplay = t.smartCategory ? `<span class="px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">${t.smartCategory.subCategory}</span>` : '<span class="text-xs text-gray-300">未分类</span>';
+                const matchDisplay = t.smartCategory && t.smartCategory.match !== '无匹配' ? `<span class="tag-match px-1 text-xs rounded">命中:"${t.smartCategory.match}"</span>` : '<span class="text-xs text-gray-300">-</span>';
+                const isChecked = selectedTxIds.has(t.id) ? 'checked' : '';
+                const remarkBadge = t.remark ? `<div class="mt-1"><span class="bg-green-50 text-green-600 text-[10px] px-1.5 py-0.5 rounded border border-green-100"><i class="fa-regular fa-comment-dots mr-1"></i>${t.remark}</span></div>` : '';
+
+                return `
+                <tr class="border-b border-gray-100 hover:bg-gray-50 group">
+                    <td class="p-4 text-center">
+                        <input type="checkbox" value="${t.id}" class="tx-checkbox rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer" ${isChecked} onchange="updateSelection(this)">
+                    </td>
+                    <td class="p-4 text-gray-500 whitespace-nowrap text-xs">${t.date}</td>
+                    <td class="p-4 flex items-center gap-2">${icon} <span class="text-xs text-gray-400">${t.account||'-'}</span></td>
+                    <td class="p-4 text-xs text-gray-500">${t.status||'-'}</td>
+                    <td class="p-4">
+                        <div class="font-medium text-gray-800 truncate max-w-[180px]" title="${t.peer}">${t.peer === '/' ? t.item : t.peer}</div>
+                        <div class="text-xs text-gray-400 truncate max-w-[180px]" title="${t.item}">${t.item}</div>
+                        ${remarkBadge}
+                    </td>
+                    <td class="p-4">${catDisplay}</td>
+                    <td class="p-4">${matchDisplay}</td>
+                    <td class="p-4 text-right font-bold ${color}">${sign}¥${formatMoney(t.amount, 2)}</td>
+                    <td class="p-4 text-center">
+                        <div class="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="openEditModal('${t.id}')" class="text-gray-400 hover:text-emerald-600 transition" title="编辑备注">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="deleteTransaction('${t.id}')" class="text-gray-400 hover:text-red-500 transition" title="删除">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+    </script>
 </body>
 </html>
